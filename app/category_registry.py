@@ -19,7 +19,6 @@ DEFAULT_MACRO_ROOTS = [
 
 DEFAULT_TECH_TEMPLATES = [
     {"base_key": "low_power", "label": "低功率", "sort_order": 10},
-    {"base_key": "high_power", "label": "高功率", "sort_order": 20},
     {"base_key": "high_frequency", "label": "高频", "sort_order": 30},
     {"base_key": "materials", "label": "材料", "sort_order": 40},
     {"base_key": "packaging", "label": "封装", "sort_order": 50},
@@ -444,6 +443,7 @@ def _ensure_default_category_tree(session: Session) -> int:
                 if row_changed:
                     changed += 1
 
+    changed += _relocate_flat_high_power_categories(session, macro_roots=macro_roots)
     changed += _normalize_article_tech_categories(session)
     changed += _normalize_source_tech_module_keys(session)
 
@@ -500,13 +500,62 @@ def _migrate_legacy_tech_templates(session: Session, *, industry_parent_id: int)
     return changed
 
 
+def _relocate_flat_high_power_categories(
+    session: Session,
+    *,
+    macro_roots: Dict[str, CategoryField],
+) -> int:
+    changed = 0
+    rows = list(session.scalars(select(CategoryField).where(CategoryField.group_type == "tech")))
+    by_key = {row.key: row for row in rows}
+    by_parent: Dict[int, List[CategoryField]] = {}
+    for row in rows:
+        if isinstance(row.parent_id, int):
+            by_parent.setdefault(int(row.parent_id), []).append(row)
+
+    for macro_key in ("industry", "academic"):
+        macro_root = macro_roots.get(macro_key)
+        low_power = by_key.get(f"{macro_key}_low_power")
+        high_power = by_key.get(f"{macro_key}_high_power")
+        if macro_root is None or low_power is None or high_power is None:
+            continue
+
+        # Merge duplicated "高功率" child under 低频 into the canonical <macro>_high_power key.
+        dup = next(
+            (
+                row
+                for row in by_parent.get(int(low_power.id), [])
+                if row.id != high_power.id and (row.label or "").strip() == (high_power.label or "").strip()
+            ),
+            None,
+        )
+        if dup is not None:
+            _move_children_to_new_parent(session, old_parent_id=int(dup.id), new_parent_id=int(high_power.id))
+            _reassign_articles_tech_exact(session, old_key=dup.key, new_key=high_power.key)
+            _reassign_source_module_key(session, old_key=dup.key, new_key=high_power.key)
+            session.delete(dup)
+            changed += 1
+
+        # Ensure "高功率" is nested under "低频" instead of being a flat sibling.
+        if high_power.parent_id != int(low_power.id):
+            high_power.parent_id = int(low_power.id)
+            changed += 1
+        if int(high_power.sort_order or 0) < 100:
+            high_power.sort_order = 100
+            changed += 1
+        if not high_power.active:
+            high_power.active = True
+            changed += 1
+    return changed
+
+
 def _normalize_article_tech_categories(session: Session) -> int:
     active_tech_keys = set(
         session.scalars(select(CategoryField.key).where(CategoryField.group_type == "tech", CategoryField.active.is_(True)))
     )
     if not active_tech_keys:
         return 0
-    base_keys = {str(item["base_key"]) for item in DEFAULT_TECH_TEMPLATES}
+    base_keys = {str(item["base_key"]) for item in DEFAULT_TECH_TEMPLATES} | {"high_power"}
     fallback_stock = "industry_other" if "industry_other" in active_tech_keys else sorted(active_tech_keys)[0]
     changed = 0
     rows = list(session.scalars(select(Article)))
@@ -532,7 +581,7 @@ def _normalize_source_tech_module_keys(session: Session) -> int:
     )
     if not active_tech_keys:
         return 0
-    base_keys = {str(item["base_key"]) for item in DEFAULT_TECH_TEMPLATES}
+    base_keys = {str(item["base_key"]) for item in DEFAULT_TECH_TEMPLATES} | {"high_power"}
     changed = 0
     rows = list(session.scalars(select(SourceSite).where(SourceSite.module_type == "tech")))
     for row in rows:

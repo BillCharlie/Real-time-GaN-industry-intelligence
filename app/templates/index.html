@@ -736,6 +736,35 @@ async function backfillStockLines(){
   }catch(error){setStatus(`折线数据抓取失败: ${String(error).slice(0,180)}`);}
   finally{btn.disabled=false; btn.textContent=oldText;}
 }
+const SIDEBAR_FILTER_PAGE_INDEX = 0;
+const MAIN_LATEST_PAGE_INDEX = 1;
+function pagerStep(pages,cardSelector,minWidth){
+  const card=pages.querySelector(cardSelector);
+  if(!card) return minWidth;
+  return Math.max(card.getBoundingClientRect().width,minWidth);
+}
+function pagerIndex(pages,cardSelector,minWidth){
+  const step=pagerStep(pages,cardSelector,minWidth);
+  if(step<=0) return 0;
+  return Math.max(0,Math.round(pages.scrollLeft/step));
+}
+function pagerScrollToIndex(pages,cardSelector,minWidth,index){
+  const step=pagerStep(pages,cardSelector,minWidth);
+  const left=Math.max(0,index)*step;
+  if(Math.abs(pages.scrollLeft-left)<1) return;
+  pages.scrollTo({left,behavior:"smooth"});
+}
+function syncSidebarToFilterWhenMainLatest(){
+  const mainPages=el("mainPages");
+  const sidePages=el("sidebarPages");
+  if(!mainPages||!sidePages) return;
+  const mainIndex=pagerIndex(mainPages,".main-card",420);
+  if(mainIndex!==MAIN_LATEST_PAGE_INDEX) return;
+  const sideIndex=pagerIndex(sidePages,".side-card",320);
+  if(sideIndex!==SIDEBAR_FILTER_PAGE_INDEX){
+    pagerScrollToIndex(sidePages,".side-card",320,SIDEBAR_FILTER_PAGE_INDEX);
+  }
+}
 function setupSidebarPager(){
   const pages=el("sidebarPages");
   const prev=el("sidePrev");
@@ -761,6 +790,14 @@ function setupMainPager(){
   };
   prev.addEventListener("click",()=>pages.scrollBy({left:-step(),behavior:"smooth"}));
   next.addEventListener("click",()=>pages.scrollBy({left:step(),behavior:"smooth"}));
+  let scrollRaf=0;
+  pages.addEventListener("scroll",()=>{
+    if(scrollRaf) return;
+    scrollRaf=requestAnimationFrame(()=>{
+      scrollRaf=0;
+      syncSidebarToFilterWhenMainLatest();
+    });
+  });
 }
 
 window.recheckSource=recheckSource;

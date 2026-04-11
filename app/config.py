@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    project_name: str = "GaNIndustry Monitor-assitant"
+    project_name: str = "GaNIndustry Monitor-assistant"
     db_url: str = "sqlite:///./data/ganiq.db"
     timezone: str = "Asia/Taipei"
 

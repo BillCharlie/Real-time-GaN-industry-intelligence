@@ -22,8 +22,9 @@ class RuntimeScheduler:
     def start(self) -> None:
         self.scheduler.add_job(
             self._ingest_job,
-            trigger="interval",
-            minutes=self.settings.ingest_interval_minutes,
+            trigger="cron",
+            hour=self.settings.ingest_cron_hour,
+            minute=self.settings.ingest_cron_minute,
             id="ingest_job",
             max_instances=1,
             coalesce=True,
@@ -47,7 +48,12 @@ class RuntimeScheduler:
             coalesce=True,
         )
         self.scheduler.start()
-        logger.info("Scheduler started.")
+        logger.info(
+            "Scheduler started. Ingest cron=%02d:%02d (%s).",
+            self.settings.ingest_cron_hour,
+            self.settings.ingest_cron_minute,
+            self.settings.timezone,
+        )
 
     def shutdown(self) -> None:
         if self.scheduler.running:
@@ -72,4 +78,3 @@ class RuntimeScheduler:
             subject, text_body, html_body, stats = build_weekly_report(session, self.settings, self.deepseek)
             send_weekly_email(session, self.settings, subject, text_body, html_body)
             logger.info("Weekly report sent: %s", stats)
-

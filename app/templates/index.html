@@ -120,11 +120,8 @@
       </div>
 
       <div class="panel side-card" style="margin-top:12px">
-        <h2>来源网站可视化编辑</h2>
-        <div class="form-row-inline">
-          <div class="form-row"><label>模块类型</label><select id="srcModuleType"><option value="macro">一级分类</option><option value="tech">技术分类</option></select></div>
-          <div class="form-row"><label>模块</label><select id="srcModuleKey"></select></div>
-        </div>
+        <h2>资讯来源</h2>
+        <div class="form-row"><label>一级分类</label><select id="srcMacro"><option value="">全部</option></select></div>
         <div class="form-row"><label>来源名称</label><input id="srcName" placeholder="IEEE Spectrum Power"></div>
         <div class="form-row"><label>来源 URL</label><input id="srcUrl" placeholder="https://..."></div>
         <div class="form-row-inline">
@@ -188,7 +185,6 @@
 
 <script>
 const defaultTickers = {{ stock_tickers | tojson }};
-const moduleOptions = { macro: [], tech: [] };
 let categoryRows = { macro: [], tech: [] };
 let categoryTreeRows = { macro: [], tech: [] };
 let macroMap = {};
@@ -199,6 +195,7 @@ let macroKeys = [];
 let techKeys = [];
 let macroToTechKeys = {};
 let techToMacroKey = {};
+let techToMacroAnyKey = {};
 let categoryById = {};
 let categoryCreateContext = { groupType: null, parentId: null, parentLabel: "", mode: "root" };
 const collapsedTreeNodes = new Set();
@@ -290,13 +287,16 @@ function buildSelectOptions(keys,labelMap,selectedKey){
 }
 function sourceStatusBadge(status){if(status==="verified") return `<span class="badge badge-verified">verified</span>`; if(status==="failed") return `<span class="badge badge-failed">failed</span>`; return `<span class="badge badge-unverified">unverified</span>`;}
 function uniqKeys(keys){return [...new Set((keys||[]).filter((x)=>Boolean(x)))];}
-function collectActiveTechKeys(node,macroKey,bucket){
+function collectTechKeys(node,macroKey,activeBucket,allMap){
   if(!node) return;
-  if(node.group_type==="tech"&&node.active){
-    bucket.push(node.key);
-    techToMacroKey[node.key]=macroKey;
+  if(node.group_type==="tech"){
+    allMap[node.key]=macroKey;
+    if(node.active){
+      activeBucket.push(node.key);
+      techToMacroKey[node.key]=macroKey;
+    }
   }
-  (node.children||[]).forEach((child)=>collectActiveTechKeys(child,macroKey,bucket));
+  (node.children||[]).forEach((child)=>collectTechKeys(child,macroKey,activeBucket,allMap));
 }
 function getTechKeysForMacro(macroKey){
   if(macroKey&&Array.isArray(macroToTechKeys[macroKey])) return macroToTechKeys[macroKey];
@@ -317,14 +317,17 @@ function fillFilterSelects(){
   macroSel.value=nextMacro;
   refreshTechFilterOptions(nextMacro,prevTech);
 }
-function fillModuleKeySelect(){
-  const type=el("srcModuleType").value;
-  const rows=moduleOptions[type]||[];
-  const select=el("srcModuleKey");
-  if(!rows.length){select.innerHTML=`<option value="">(none)</option>`;return;}
-  const prev=select.value; const keys=rows.map((x)=>x.key);
-  select.innerHTML=rows.map((row)=>`<option value="${escapeHtml(row.key)}">${escapeHtml(row.path_label||row.label||row.key)}</option>`).join("");
-  select.value=keys.includes(prev)?prev:keys[0];
+function fillSourceCategorySelects(){
+  const macroSel=el("srcMacro");
+  const prevMacro=macroSel.value;
+  macroSel.innerHTML=`<option value="">全部</option>${macroKeys.map((k)=>`<option value="${escapeHtml(k)}">${escapeHtml(displayCategoryName("macro",k,{path:false}))}</option>`).join("")}`;
+  const nextMacro=macroKeys.includes(prevMacro)?prevMacro:"";
+  macroSel.value=nextMacro;
+}
+function resolveSourceModuleSelection(){
+  const macroKey=el("srcMacro").value;
+  if(macroKey) return {module_type:"macro",module_key:macroKey};
+  return {module_type:"",module_key:""};
 }
 function applyCategoryData(data){
   categoryTreeRows={
@@ -352,10 +355,11 @@ function applyCategoryData(data){
   macroKeys=activeMacroRoots.map((x)=>x.key);
 
   techToMacroKey={};
+  techToMacroAnyKey={};
   macroToTechKeys={};
   activeMacroRoots.forEach((root)=>{
     const bucket=[];
-    (root.children||[]).forEach((child)=>collectActiveTechKeys(child,root.key,bucket));
+    (root.children||[]).forEach((child)=>collectTechKeys(child,root.key,bucket,techToMacroAnyKey));
     macroToTechKeys[root.key]=uniqKeys(bucket);
   });
   const orphanActiveTech=(categoryTreeRows.tech||[]).flatMap((node)=>flattenCategoryTree([node],[])).filter((x)=>x.group_type==="tech"&&x.active&&!(x.key in techToMacroKey)).map((x)=>x.key);
@@ -364,10 +368,8 @@ function applyCategoryData(data){
   const validTreeTokens=new Set([...allMacro,...allTech].map((x)=>`${x.group_type}:${x.key}`));
   [...collapsedTreeNodes].forEach((token)=>{if(!validTreeTokens.has(token)) collapsedTreeNodes.delete(token);});
 
-  moduleOptions.macro=activeMacroRoots.map((x)=>({key:x.key,label:displayCategoryName("macro",x.key,{path:false,fallbackLabel:x.label}),path_label:displayCategoryName("macro",x.key,{path:true,fallbackLabel:x.label})}));
-  moduleOptions.tech=techKeys.map((key)=>({key,label:displayCategoryName("tech",key,{path:false}),path_label:displayCategoryName("tech",key,{path:true})}));
   fillFilterSelects();
-  fillModuleKeySelect();
+  fillSourceCategorySelects();
   renderCategoryTree();
 }
 function openCreateCategory(groupType,parentId,parentLabel,mode="child"){
@@ -605,11 +607,19 @@ async function loadStats(){
 }
 async function loadStocks(){const data=await fetchJson("/api/stocks"); renderStocks(data.items||[]); return data.items||[];}
 async function loadSourceList(){
-  const params=new URLSearchParams({module_type:el("srcModuleType").value,include_inactive:"true"});
-  const moduleKey=el("srcModuleKey").value; if(moduleKey) params.set("module_key",moduleKey);
+  const params=new URLSearchParams({include_inactive:"true"});
+  const selection=resolveSourceModuleSelection();
   const data=await fetchJson(`/api/source-sites?${params.toString()}`);
-  renderSourceList(data.items||[]);
-  setSourceStatus(`当前模块来源数: ${data.count||0}`);
+  let rows=data.items||[];
+  if(selection.module_key){
+    rows=rows.filter((row)=>{
+      if(row.module_type==="macro") return row.module_key===selection.module_key;
+      if(row.module_type==="tech") return techToMacroAnyKey[row.module_key]===selection.module_key;
+      return false;
+    });
+  }
+  renderSourceList(rows);
+  setSourceStatus(`当前资讯来源数: ${rows.length}`);
 }
 async function loadCompanyWhitelist(){
   const data=await fetchJson("/api/company-whitelist?include_inactive=true");
@@ -619,9 +629,11 @@ async function loadCompanyWhitelist(){
 async function addSource(){
   const name=el("srcName").value.trim(), url=el("srcUrl").value.trim();
   if(!name||!url){setSourceStatus("请填写来源名称和 URL");return;}
+  const selection=resolveSourceModuleSelection();
+  if(!selection.module_key){setSourceStatus("请先选择一级分类");return;}
   let params={}; const raw=el("srcParams").value.trim();
   if(raw){try{params=JSON.parse(raw);}catch{setSourceStatus("参数 JSON 格式错误");return;}}
-  await fetchJson("/api/source-sites",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,url,source_type:el("srcType").value,module_type:el("srcModuleType").value,module_key:el("srcModuleKey").value,params})});
+  await fetchJson("/api/source-sites",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,url,source_type:el("srcType").value,module_type:"macro",module_key:selection.module_key,params})});
   el("srcName").value=""; el("srcUrl").value=""; el("srcParams").value="";
   setSourceStatus("来源已新增并完成真实性校验");
   await loadSourceList();
@@ -785,8 +797,7 @@ el("btnLoadChart").addEventListener("click",()=>loadChart().catch((e)=>setStatus
 el("btnAddSource").addEventListener("click",()=>addSource().catch((e)=>setSourceStatus(String(e))));
 el("btnAddCompany").addEventListener("click",()=>addCompany().catch((e)=>setCompanyStatus(String(e))));
 el("btnSyncCompanies").addEventListener("click",()=>syncCompanySources().catch((e)=>setCompanyStatus(String(e))));
-el("srcModuleType").addEventListener("change",async()=>{fillModuleKeySelect();await loadSourceList();});
-el("srcModuleKey").addEventListener("change",()=>loadSourceList().catch((e)=>setSourceStatus(String(e))));
+el("srcMacro").addEventListener("change",()=>loadSourceList().catch((e)=>setSourceStatus(String(e))));
 el("chartTicker").addEventListener("change",()=>loadChart().catch((e)=>setStatus(String(e))));
 
 async function initialize(){

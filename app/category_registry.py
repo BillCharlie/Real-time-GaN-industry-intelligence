@@ -345,7 +345,8 @@ def _ensure_default_category_tree(session: Session) -> int:
             changed += 1
         else:
             row_changed = False
-            if row.label != label:
+            # Preserve user-renamed labels across restarts; only backfill empty labels.
+            if not (row.label or "").strip():
                 row.label = label
                 row_changed = True
             if row.parent_id is not None:
@@ -421,7 +422,8 @@ def _ensure_default_category_tree(session: Session) -> int:
                 changed += 1
             else:
                 row_changed = False
-                if row.label != child_label:
+                # Preserve user-renamed labels across restarts; only backfill empty labels.
+                if not (row.label or "").strip():
                     row.label = child_label
                     row_changed = True
                 if row.parent_id != int(parent.id):

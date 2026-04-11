@@ -1,4 +1,4 @@
-# Real-time GaN Industry Intelligence
+# GaNIndustry Monitor-assitant
 
 一个可运行的 GaN（氮化镓）产业情报系统，支持：
 
@@ -34,7 +34,8 @@ python main.py
 可选字段：
 
 - `STOCK_TICKERS_CSV` 自定义追踪股票
-- `INGEST_INTERVAL_MINUTES` / `STOCK_INTERVAL_MINUTES` 抓取频率
+- `INGEST_CRON_HOUR` / `INGEST_CRON_MINUTE` 每日自动抓取时间（默认 05:00，按 `TIMEZONE`）
+- `STOCK_INTERVAL_MINUTES` 股票快照抓取频率
 - `WEEKLY_CRON_*` 周报时间（按 `TIMEZONE`）
 
 ## 3. Web 面板功能
@@ -47,8 +48,8 @@ python main.py
   - 新增企业与官网域名
   - 启用/停用白名单企业
   - 一键同步到来源库
-- 来源网站可视化编辑：
-  - 模块化查看来源
+- 资讯来源：
+  - 按“一级分类”查看来源（默认“全部”）
   - 新增来源
   - 启用/停用
   - 复核与人工确认
@@ -59,6 +60,9 @@ python main.py
 - 文章内容补全：
   - 对缺少摘要/正文的文章抓取页面元描述与正文片段
   - 可通过页面按钮“补全概要/正文”触发
+- 抓取调度：
+  - 服务运行中，每日 05:00 自动执行抓取任务（按 `TIMEZONE`）
+  - 若服务重启/停机错过自动抓取，可在页面点击“立即抓取”手动执行
 
 ## 4. 真实性校验
 

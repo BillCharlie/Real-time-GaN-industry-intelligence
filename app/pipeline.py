@@ -121,7 +121,8 @@ def run_ingestion(session: Session, settings: Settings, deepseek: DeepSeekClient
                 result.skipped += 1
                 continue
 
-            macro, tech, tags = classify_text(row.title, summary)
+            # Keep a deterministic fallback from title text; DeepSeek is the primary classifier.
+            macro, tech, tags = classify_text(row.title, None)
             if source.macro_hint:
                 macro = source.macro_hint
             if source.tech_hint and tech == "other":
@@ -142,7 +143,7 @@ def run_ingestion(session: Session, settings: Settings, deepseek: DeepSeekClient
             if deepseek.enabled:
                 try:
                     ds_analysis = deepseek.analyze_article(
-                        title=row.title, summary=summary, macro_hint=macro, tech_hint=tech
+                        title=row.title, summary=None, macro_hint=macro, tech_hint=tech
                     )
                 except Exception:
                     logger.exception("DeepSeek analysis failed for: %s", row.url)

@@ -8,11 +8,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    project_name: str = "Real-time GaN Industry Intelligence"
+    project_name: str = "GaNIndustry Monitor-assitant"
     db_url: str = "sqlite:///./data/ganiq.db"
     timezone: str = "Asia/Taipei"
 
-    ingest_interval_minutes: int = 60
+    ingest_cron_hour: int = 5
+    ingest_cron_minute: int = 0
     stock_interval_minutes: int = 30
     weekly_cron_day_of_week: str = "mon"
     weekly_cron_hour: int = 9

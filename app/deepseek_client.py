@@ -46,7 +46,8 @@ class DeepSeekClient:
             },
             "task": (
                 "Return strict JSON with keys: macro_category, tech_category, "
-                "sentiment_score(-1~1), impact_score(0~100), analysis_text(<=120 words)."
+                "sentiment_score(-1~1), impact_score(0~100), analysis_text(<=120 words). "
+                "Classify primarily from the title. Use summary only as auxiliary context."
             ),
         }
         data = {
@@ -124,4 +125,3 @@ def _float_or_none(value: Any) -> float | None:
         return float(value)
     except (ValueError, TypeError):
         return None
-

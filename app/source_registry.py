@@ -33,7 +33,7 @@ STATIC_TRUSTED_DOMAIN_SUFFIXES = {
     "navitassemi.com",
     "wolfspeed.com",
     "renesas.com",
-    "vlsitimes.com",
+    "vis.com.tw",
     "microchip.com",
     "analog.com",
     "mouser.com",
@@ -45,7 +45,11 @@ STATIC_TRUSTED_DOMAIN_SUFFIXES = {
 }
 
 DEFAULT_COMPANY_WHITELIST = [
-    {"name": "VLSI", "domain": "vlsitimes.com", "note": "VLSI industry media"},
+    {
+        "name": "VIS",
+        "domain": "vis.com.tw",
+        "note": "Official site (press): https://www.vis.com.tw/tc/press_latest",
+    },
     {"name": "Infineon", "domain": "infineon.com", "note": "Official site"},
     {"name": "onsemi", "domain": "onsemi.com", "note": "Official site"},
     {"name": "ST", "domain": "st.com", "note": "Official site"},
@@ -70,6 +74,7 @@ def available_modules(session: Session) -> Dict[str, List[Dict[str, str]]]:
 
 
 def ensure_seed_company_whitelist(session: Session) -> int:
+    _migrate_legacy_vlsi_to_vis(session)
     inserted = 0
     existing_domains = set(session.scalars(select(CompanyWhitelist.domain)))
     for row in DEFAULT_COMPANY_WHITELIST:
@@ -152,12 +157,47 @@ def update_company_whitelist(
     return row
 
 
+def delete_company_whitelist(session: Session, company_id: int) -> Dict[str, Any]:
+    row = _get_company_or_raise(session, company_id)
+    if not row.created_by_user:
+        raise ValueError("Built-in company cannot be deleted. Disable it instead.")
+
+    deleted = company_to_dict(row)
+    session.delete(row)
+    session.commit()
+    synced = sync_company_whitelist_sources(session)
+    return {"item": deleted, "synced": synced}
+
+
 def sync_company_whitelist_sources(session: Session) -> Dict[str, int]:
     created = 0
     activated = 0
     deactivated = 0
 
     companies = list_company_whitelist(session, include_inactive=True)
+    company_by_name = {company.name: company for company in companies}
+
+    # Retire orphan or stale generated sources first (company deleted / renamed / domain changed).
+    generated_rows = list(
+        session.scalars(
+            select(SourceSite).where(
+                SourceSite.created_by_user.is_(False),
+                SourceSite.source_type == "rss",
+                SourceSite.module_type == "macro",
+                SourceSite.module_key == "industry",
+                SourceSite.name.like("Whitelist Company - %"),
+            )
+        )
+    )
+    for row in generated_rows:
+        company_name = _extract_company_name_from_generated_source(row.name)
+        company = company_by_name.get(company_name)
+        expected_url = build_company_google_news_rss(company.domain) if company else ""
+        should_active = bool(company and company.active and row.url == expected_url)
+        if row.active and not should_active:
+            row.active = False
+            deactivated += 1
+
     for company in companies:
         source_name = f"Whitelist Company - {company.name}"
         source_url = build_company_google_news_rss(company.domain)
@@ -217,12 +257,44 @@ def sync_company_whitelist_sources(session: Session) -> Dict[str, int]:
 
 def ensure_seed_sources(session: Session) -> int:
     inserted = 0
+    updated = 0
     defaults = get_default_sources()
     existing_pairs = set(session.execute(select(SourceSite.module_type, SourceSite.module_key, SourceSite.url)).all())
     extra_domains = active_company_domains(session)
 
     for source in defaults:
         module_type, module_key = _infer_module_from_hints(source.macro_hint, source.tech_hint)
+        existing_by_name = session.scalar(
+            select(SourceSite)
+            .where(
+                SourceSite.created_by_user.is_(False),
+                SourceSite.name == source.name,
+                SourceSite.source_type == source.source_type[:40],
+                SourceSite.module_type == module_type,
+                SourceSite.module_key == module_key,
+            )
+            .order_by(desc(SourceSite.created_at))
+            .limit(1)
+        )
+        expected_params = json.dumps(source.params, ensure_ascii=False) if source.params else None
+        if existing_by_name:
+            needs_update = (
+                existing_by_name.url != source.url
+                or (existing_by_name.params_json or None) != (expected_params or None)
+            )
+            if needs_update:
+                verification = verify_source_url(source.url, extra_trusted_domains=extra_domains)
+                existing_by_name.url = source.url[:1500]
+                existing_by_name.params_json = expected_params
+                existing_by_name.verification_status = verification["verification_status"]
+                existing_by_name.verification_method = verification["verification_method"]
+                existing_by_name.verification_message = verification["verification_message"]
+                existing_by_name.trusted_domain = verification["trusted_domain"]
+                existing_by_name.reachable = verification["reachable"]
+                existing_by_name.last_checked_at = verification["last_checked_at"]
+                updated += 1
+            continue
+
         if (module_type, module_key, source.url) in existing_pairs:
             continue
         verification = verify_source_url(source.url, extra_trusted_domains=extra_domains)
@@ -245,9 +317,9 @@ def ensure_seed_sources(session: Session) -> int:
         session.add(row)
         inserted += 1
         existing_pairs.add((module_type, module_key, source.url))
-    if inserted:
+    if inserted or updated:
         session.commit()
-    return inserted
+    return inserted + updated
 
 
 def list_sources(
@@ -388,6 +460,16 @@ def update_source(
     return row
 
 
+def delete_source(session: Session, source_id: int) -> Dict[str, Any]:
+    row = _get_source_or_raise(session, source_id)
+    if not row.created_by_user:
+        raise ValueError("System source cannot be deleted. Disable it instead.")
+    deleted = source_to_dict(row)
+    session.delete(row)
+    session.commit()
+    return deleted
+
+
 def verify_source(session: Session, source_id: int) -> SourceSite:
     row = _get_source_or_raise(session, source_id)
     verification = verify_source_url(row.url, extra_trusted_domains=active_company_domains(session))
@@ -504,7 +586,10 @@ def active_company_domains(session: Session) -> List[str]:
 
 def build_company_google_news_rss(domain: str) -> str:
     clean_domain = _normalize_domain(domain)
-    q = quote_plus(f"site:{clean_domain} GaN power semiconductor when:14d")
+    q = quote_plus(
+        f'site:{clean_domain} ("gallium nitride" OR ("GaN" semiconductor)) '
+        "-generative -adversarial when:14d"
+    )
     return f"https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
 
 
@@ -597,6 +682,8 @@ def _infer_module_from_hints(macro_hint: str | None, tech_hint: str | None) -> t
     if macro_hint in {"industry", "stock", "academic"}:
         return "macro", macro_hint
     if tech_hint in {"low_power", "high_power", "high_frequency", "materials", "packaging", "other"}:
+        return "tech", f"industry_{tech_hint}"
+    if tech_hint and tech_hint.startswith(("industry_", "academic_")):
         return "tech", tech_hint
     return "macro", "industry"
 
@@ -623,6 +710,42 @@ def _normalize_domain(domain: str) -> str:
     return value.strip("/")
 
 
+def _migrate_legacy_vlsi_to_vis(session: Session) -> None:
+    legacy = session.scalar(
+        select(CompanyWhitelist).where(
+            or_(
+                CompanyWhitelist.name == "VLSI",
+                CompanyWhitelist.domain == "vlsitimes.com",
+            )
+        )
+    )
+    if not legacy:
+        return
+
+    target = session.scalar(
+        select(CompanyWhitelist).where(
+            or_(
+                CompanyWhitelist.name == "VIS",
+                CompanyWhitelist.domain == "vis.com.tw",
+            )
+        )
+    )
+    if target and target.id != legacy.id:
+        if legacy.active and not target.active:
+            target.active = True
+        if not target.note:
+            target.note = "Official site (press): https://www.vis.com.tw/tc/press_latest"
+        session.delete(legacy)
+        session.commit()
+        return
+
+    legacy.name = "VIS"
+    legacy.domain = "vis.com.tw"
+    legacy.note = "Official site (press): https://www.vis.com.tw/tc/press_latest"
+    legacy.created_by_user = False
+    session.commit()
+
+
 def _get_source_or_raise(session: Session, source_id: int) -> SourceSite:
     row = session.get(SourceSite, source_id)
     if not row:
@@ -642,11 +765,24 @@ def _module_label(module_type: str, module_key: str) -> str:
         "macro:industry": "企业产业",
         "macro:stock": "股市",
         "macro:academic": "学术",
-        "tech:low_power": "低功率",
-        "tech:high_power": "高功率",
-        "tech:high_frequency": "高频",
-        "tech:materials": "材料",
-        "tech:packaging": "封装",
-        "tech:other": "其他",
+        "tech:industry_low_power": "产业 / 低功率",
+        "tech:industry_high_power": "产业 / 高功率",
+        "tech:industry_high_frequency": "产业 / 高频",
+        "tech:industry_materials": "产业 / 材料",
+        "tech:industry_packaging": "产业 / 封装",
+        "tech:industry_other": "产业 / 其他",
+        "tech:academic_low_power": "学术 / 低功率",
+        "tech:academic_high_power": "学术 / 高功率",
+        "tech:academic_high_frequency": "学术 / 高频",
+        "tech:academic_materials": "学术 / 材料",
+        "tech:academic_packaging": "学术 / 封装",
+        "tech:academic_other": "学术 / 其他",
     }
     return mapping.get(f"{module_type}:{module_key}", module_key)
+
+
+def _extract_company_name_from_generated_source(source_name: str) -> str:
+    prefix = "Whitelist Company - "
+    if not source_name.startswith(prefix):
+        return ""
+    return source_name[len(prefix) :].strip()

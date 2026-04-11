@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections import Counter
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
@@ -8,6 +9,7 @@ from typing import Dict, Iterable, List, Optional
 
 import yfinance as yf
 from sqlalchemy import desc, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .category_registry import get_active_category_keys
@@ -19,6 +21,8 @@ from .sources import RawArticle, fetch_article_page_preview, fetch_from_source, 
 from .taxonomy import classify_text
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_TECH_BASE_KEYS = ("low_power", "high_power", "high_frequency", "materials", "packaging", "other")
 
 
 @dataclass
@@ -41,16 +45,25 @@ def run_ingestion(session: Session, settings: Settings, deepseek: DeepSeekClient
     result = IngestResult()
     macro_keys = get_active_category_keys(session, "macro") or {"industry", "stock", "academic"}
     tech_keys = get_active_category_keys(session, "tech") or {
-        "low_power",
-        "high_power",
-        "high_frequency",
-        "materials",
-        "packaging",
-        "other",
+        "industry_low_power",
+        "industry_high_power",
+        "industry_high_frequency",
+        "industry_materials",
+        "industry_packaging",
+        "industry_other",
+        "academic_low_power",
+        "academic_high_power",
+        "academic_high_frequency",
+        "academic_materials",
+        "academic_packaging",
+        "academic_other",
     }
     sources = sources_for_ingestion(session)
     if not sources:
         sources = get_default_sources()
+
+    seen_urls: set[str] = set()
+    pending_articles: Dict[str, Article] = {}
 
     for source in sources:
         try:
@@ -62,8 +75,38 @@ def run_ingestion(session: Session, settings: Settings, deepseek: DeepSeekClient
 
         result.fetched += len(rows)
         for row in rows:
+            if not row.url:
+                result.skipped += 1
+                continue
+            article_url = row.url.strip()[:1500]
+            if not article_url:
+                result.skipped += 1
+                continue
+
             summary = row.summary or _derive_summary_from_content(row.content)
-            existing = _get_article_by_url(session, row.url)
+            if not _is_gan_relevant_article(row.title, summary, row.content):
+                result.skipped += 1
+                continue
+
+            pending = pending_articles.get(article_url)
+            if pending:
+                changed = False
+                if summary and not pending.summary:
+                    pending.summary = summary
+                    changed = True
+                if row.content and not pending.content:
+                    pending.content = row.content
+                    changed = True
+                if changed:
+                    pending.updated_at = datetime.now(timezone.utc)
+                result.skipped += 1
+                continue
+
+            if article_url in seen_urls:
+                result.skipped += 1
+                continue
+
+            existing = _get_article_by_url(session, article_url)
             if existing:
                 updated = False
                 if summary and not existing.summary:
@@ -74,6 +117,7 @@ def run_ingestion(session: Session, settings: Settings, deepseek: DeepSeekClient
                     updated = True
                 if updated:
                     existing.updated_at = datetime.now(timezone.utc)
+                seen_urls.add(article_url)
                 result.skipped += 1
                 continue
 
@@ -83,10 +127,13 @@ def run_ingestion(session: Session, settings: Settings, deepseek: DeepSeekClient
             if source.tech_hint and tech == "other":
                 tech = source.tech_hint
 
-            if macro not in macro_keys:
-                macro = next(iter(macro_keys))
-            if tech not in tech_keys:
-                tech = next(iter(tech_keys))
+            macro = _resolve_macro_choice(macro, macro_keys, fallback="industry")
+            tech = _resolve_tech_choice(
+                macro=macro,
+                tech=tech,
+                valid_tech_keys=tech_keys,
+                fallback="industry_other",
+            )
 
             ds_analysis = None
             ds_text = None
@@ -101,11 +148,12 @@ def run_ingestion(session: Session, settings: Settings, deepseek: DeepSeekClient
                     logger.exception("DeepSeek analysis failed for: %s", row.url)
 
             if ds_analysis:
-                macro = _safe_choice(ds_analysis.macro_category, macro_keys, macro)
-                tech = _safe_choice(
-                    ds_analysis.tech_category,
-                    tech_keys,
-                    tech,
+                macro = _resolve_macro_choice(ds_analysis.macro_category, macro_keys, fallback=macro)
+                tech = _resolve_tech_choice(
+                    macro=macro,
+                    tech=ds_analysis.tech_category,
+                    valid_tech_keys=tech_keys,
+                    fallback=tech,
                 )
                 sentiment = ds_analysis.sentiment_score
                 impact = ds_analysis.impact_score
@@ -115,7 +163,7 @@ def run_ingestion(session: Session, settings: Settings, deepseek: DeepSeekClient
                 source=row.source[:120],
                 source_type=row.source_type[:40],
                 title=row.title[:600],
-                url=row.url[:1500],
+                url=article_url,
                 published_at=row.published_at,
                 summary=summary,
                 content=row.content,
@@ -126,8 +174,16 @@ def run_ingestion(session: Session, settings: Settings, deepseek: DeepSeekClient
                 impact_score=impact,
                 deepseek_analysis=ds_text,
             )
-            session.add(article)
-            result.inserted += 1
+            try:
+                with session.begin_nested():
+                    session.add(article)
+                    session.flush()
+                pending_articles[article_url] = article
+                seen_urls.add(article_url)
+                result.inserted += 1
+            except IntegrityError:
+                logger.warning("Skipped duplicate URL during ingestion: %s", article_url)
+                result.skipped += 1
 
     session.commit()
     return result
@@ -269,7 +325,18 @@ def query_articles(
 
     group = (module_group or "").strip().lower()
     if group == "power":
-        stmt = stmt.where(Article.tech_category.in_(["low_power", "high_power"]))
+        stmt = stmt.where(
+            Article.tech_category.in_(
+                [
+                    "low_power",
+                    "high_power",
+                    "industry_low_power",
+                    "industry_high_power",
+                    "academic_low_power",
+                    "academic_high_power",
+                ]
+            )
+        )
     elif group in macro_keys:
         stmt = stmt.where(Article.macro_category == group)
     elif group in tech_keys:
@@ -387,6 +454,54 @@ def _safe_choice(value: str, valid_choices: Iterable[str], fallback: str) -> str
     return value if value in set(valid_choices) else fallback
 
 
+def _resolve_macro_choice(value: str | None, valid_keys: Iterable[str], fallback: str = "industry") -> str:
+    choices = {str(x) for x in valid_keys if x}
+    normalized = (value or "").strip().lower()
+    if normalized in choices:
+        return normalized
+    if fallback in choices:
+        return fallback
+    for candidate in ("industry", "academic", "stock"):
+        if candidate in choices:
+            return candidate
+    return sorted(choices)[0] if choices else fallback
+
+
+def _resolve_tech_choice(
+    *,
+    macro: str,
+    tech: str | None,
+    valid_tech_keys: Iterable[str],
+    fallback: str,
+) -> str:
+    choices = {str(x) for x in valid_tech_keys if x}
+    normalized = (tech or "").strip().lower()
+    if normalized in choices:
+        return normalized
+
+    if macro in {"academic", "industry"}:
+        suffix = normalized
+        if suffix.startswith("academic_") or suffix.startswith("industry_"):
+            _, _, suffix = suffix.partition("_")
+        if suffix in DEFAULT_TECH_BASE_KEYS:
+            candidate = f"{macro}_{suffix}"
+            if candidate in choices:
+                return candidate
+        fallback_macro = f"{macro}_other"
+        if fallback_macro in choices:
+            return fallback_macro
+
+    if normalized in DEFAULT_TECH_BASE_KEYS:
+        for candidate in (f"industry_{normalized}", f"academic_{normalized}"):
+            if candidate in choices:
+                return candidate
+
+    for candidate in ("industry_other", "academic_other", fallback):
+        if candidate in choices:
+            return candidate
+    return sorted(choices)[0] if choices else (normalized or fallback)
+
+
 def _derive_summary_from_content(content: str | None) -> str | None:
     if not content:
         return None
@@ -396,6 +511,50 @@ def _derive_summary_from_content(content: str | None) -> str | None:
     if len(text) <= 320:
         return text
     return text[:320].rstrip() + "..."
+
+
+GAN_EXCLUSION_HINTS = (
+    "generative adversarial",
+    "diffusion",
+    "large language model",
+    "machine learning",
+    "image generation",
+)
+
+GAN_SEMICONDUCTOR_HINTS = (
+    "gallium nitride",
+    "semiconductor",
+    "power electronics",
+    "power device",
+    "power supply",
+    "hemt",
+    "gan fet",
+    "transistor",
+    "charger",
+    "inverter",
+    "mmwave",
+    "wafer",
+    "epitaxy",
+    "氮化镓",
+)
+
+
+def _is_gan_relevant_article(title: str, summary: str | None, content: str | None) -> bool:
+    text = " ".join(x for x in [title or "", summary or "", content or ""] if x).strip()
+    if not text:
+        return False
+    normalized = " ".join(text.lower().split())
+
+    if "gallium nitride" in normalized or "氮化镓" in normalized:
+        return True
+
+    has_gan_token = bool(re.search(r"\bGaN\b", text) or re.search(r"\bgan\b", text))
+    if not has_gan_token:
+        return False
+
+    has_semiconductor_hint = any(term in normalized for term in GAN_SEMICONDUCTOR_HINTS)
+    has_ai_hint = any(term in normalized for term in GAN_EXCLUSION_HINTS)
+    return has_semiconductor_hint and not has_ai_hint
 
 
 def _normalize_timestamp(value) -> datetime:

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, Dict, List, Tuple
-from urllib.parse import urlparse
+from urllib.parse import quote_plus, urlparse
 
 import feedparser
 import httpx
@@ -32,18 +32,26 @@ class RawArticle:
     content: str | None = None
 
 
+def _google_news_search_url(query: str) -> str:
+    return f"https://news.google.com/rss/search?q={quote_plus(query)}&hl=en-US&gl=US&ceid=US:en"
+
+
 def get_default_sources() -> List[SourceDefinition]:
     return [
         SourceDefinition(
             name="Google News - GaN Semiconductor",
             source_type="rss",
-            url="https://news.google.com/rss/search?q=GaN+power+semiconductor+when:7d&hl=en-US&gl=US&ceid=US:en",
+            url=_google_news_search_url(
+                '"gallium nitride" OR ("GaN" semiconductor power) -generative -adversarial when:7d'
+            ),
             macro_hint="industry",
         ),
         SourceDefinition(
             name="Google News - GaN Stock",
             source_type="rss",
-            url="https://news.google.com/rss/search?q=GaN+semiconductor+stock+earnings+when:14d&hl=en-US&gl=US&ceid=US:en",
+            url=_google_news_search_url(
+                '"gallium nitride" semiconductor stock earnings -generative -adversarial when:14d'
+            ),
             macro_hint="stock",
         ),
         SourceDefinition(
@@ -91,14 +99,18 @@ def get_default_sources() -> List[SourceDefinition]:
         SourceDefinition(
             name="Google News - GaN Fast Charger (Low Power)",
             source_type="rss",
-            url="https://news.google.com/rss/search?q=GaN+fast+charger+USB-C+when:14d&hl=en-US&gl=US&ceid=US:en",
+            url=_google_news_search_url(
+                '"GaN" fast charger USB-C power adapter -generative -adversarial when:14d'
+            ),
             macro_hint="industry",
             tech_hint="low_power",
         ),
         SourceDefinition(
             name="Google News - GaN EV Inverter (High Power)",
             source_type="rss",
-            url="https://news.google.com/rss/search?q=GaN+EV+inverter+traction+when:30d&hl=en-US&gl=US&ceid=US:en",
+            url=_google_news_search_url(
+                '"GaN" EV inverter traction "power semiconductor" -generative -adversarial when:30d'
+            ),
             macro_hint="industry",
             tech_hint="high_power",
         ),

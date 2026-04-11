@@ -16,7 +16,7 @@ from .category_registry import (
     categories_payload,
     category_dict,
     create_category,
-    deactivate_category,
+    delete_category,
     ensure_seed_categories,
     get_active_category_keys,
     update_category,
@@ -44,6 +44,8 @@ from .source_registry import (
     company_to_dict,
     create_source,
     create_company_whitelist,
+    delete_company_whitelist,
+    delete_source,
     ensure_seed_sources,
     ensure_seed_company_whitelist,
     list_sources,
@@ -119,8 +121,9 @@ class ArticleClassificationUpdateRequest(BaseModel):
 
 class CategoryCreateRequest(BaseModel):
     group_type: str
-    key: str
+    key: str = ""
     label: str
+    parent_id: Optional[int] = None
     active: bool = True
     sort_order: int = 100
 
@@ -298,6 +301,7 @@ def api_create_category(payload: CategoryCreateRequest, session: Session = Depen
             group_type=payload.group_type,
             key=payload.key,
             label=payload.label,
+            parent_id=payload.parent_id,
             active=payload.active,
             sort_order=payload.sort_order,
         )
@@ -322,12 +326,12 @@ def api_update_category(category_id: int, payload: CategoryUpdateRequest, sessio
 
 
 @app.delete("/api/categories/{category_id}")
-def api_deactivate_category(category_id: int, session: Session = Depends(get_db_session)):
+def api_delete_category(category_id: int, session: Session = Depends(get_db_session)):
     try:
-        row = deactivate_category(session, category_id)
+        deleted = delete_category(session, category_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return {"ok": True, "item": category_dict(row)}
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "item": deleted}
 
 
 @app.get("/api/source-sites")
@@ -376,6 +380,15 @@ def api_update_source(source_id: int, payload: SourceUpdateRequest, session: Ses
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"ok": True, "item": source_to_dict(row)}
+
+
+@app.delete("/api/source-sites/{source_id}")
+def api_delete_source(source_id: int, session: Session = Depends(get_db_session)):
+    try:
+        deleted = delete_source(session, source_id=source_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "item": deleted}
 
 
 @app.post("/api/source-sites/{source_id}/verify")
@@ -439,6 +452,15 @@ def api_update_company_whitelist(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"ok": True, "item": company_to_dict(row), "synced": synced}
+
+
+@app.delete("/api/company-whitelist/{company_id}")
+def api_delete_company_whitelist(company_id: int, session: Session = Depends(get_db_session)):
+    try:
+        deleted = delete_company_whitelist(session, company_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, **deleted}
 
 
 @app.post("/api/company-whitelist/sync")

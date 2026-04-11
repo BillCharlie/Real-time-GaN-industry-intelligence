@@ -115,6 +115,7 @@ class CategoryField(Base):
     group_type: Mapped[str] = mapped_column(String(20), index=True)  # macro / tech
     key: Mapped[str] = mapped_column(String(60), index=True)
     label: Mapped[str] = mapped_column(String(120))
+    parent_id: Mapped[int | None] = mapped_column(Integer, index=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     built_in: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     created_by_user: Mapped[bool] = mapped_column(Boolean, default=False, index=True)

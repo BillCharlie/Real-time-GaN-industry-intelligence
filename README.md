@@ -4,7 +4,7 @@
 
 - 多源实时抓取：产业新闻、企业官网线索、学术检索（IEEE/Nature/APL）
 - 自动分类：`企业产业 / 股市 / 学术` 与 `低功率 / 高功率 / 高频 / 材料 / 封装`
-- 企业白名单源配置：预置 `VLSI / Infineon / onsemi / ST / Navitas / Wolfspeed / TI / Renesas`
+- 企业白名单源配置：预置 `VIS / Infineon / onsemi / ST / Navitas / Wolfspeed / TI / Renesas`
 - 数据源可视化可编辑：新增、启停、复核、人工确认
 - DeepSeek 分析：情绪、影响力、摘要
 - Gmail 周报：备用 Gmail 自动发送到工作 Gmail

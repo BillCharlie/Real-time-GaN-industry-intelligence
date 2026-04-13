@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     ingest_cron_hour: int = 5
     ingest_cron_minute: int = 0
     stock_interval_minutes: int = 30
-    weekly_cron_day_of_week: str = "mon"
-    weekly_cron_hour: int = 9
+    weekly_cron_day_of_week: str = "mon,thu"
+    weekly_cron_hour: int = 7
     weekly_cron_minute: int = 0
 
     max_articles_per_source: int = 20

@@ -46,7 +46,7 @@ def build_weekly_report(
             ai_brief = None
 
     date_label = datetime.now().strftime("%Y-%m-%d")
-    subject = f"[GaN Weekly Intelligence] {date_label} 动态周报"
+    subject = f"[GaN Morning Intelligence] {date_label} 动态晨报"
     text_body = _build_text_body(macro_counter, tech_counter, top_by_macro, ai_brief)
     html_body = _build_html_body(macro_counter, tech_counter, top_by_macro, ai_brief)
     stats = {"total_articles": len(articles), "macro_categories": len(macro_counter), "tech_categories": len(tech_counter)}
@@ -92,7 +92,7 @@ def _build_text_body(
     macro_counter: Counter, tech_counter: Counter, top_by_macro: Dict[str, List[Article]], ai_brief: str | None
 ) -> str:
     lines: List[str] = []
-    lines.append("GaN 行业动态周报")
+    lines.append("GaN 行业动态晨报")
     lines.append("")
     if ai_brief:
         lines.append("【DeepSeek 摘要】")
@@ -137,7 +137,7 @@ def _build_html_body(
     return f"""
     <html>
       <body style="font-family:Arial,sans-serif;line-height:1.5;">
-        <h2>GaN 行业动态周报</h2>
+        <h2>GaN 行业动态晨报</h2>
         <h3>DeepSeek 摘要</h3>
         {brief_block}
         <h3>一级分类统计</h3>
@@ -148,4 +148,3 @@ def _build_html_body(
       </body>
     </html>
     """
-

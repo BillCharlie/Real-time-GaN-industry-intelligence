@@ -7,7 +7,7 @@
 - 企业白名单源配置：预置 `VIS / Infineon / onsemi / ST / Navitas / Wolfspeed / TI / Renesas`
 - 数据源可视化可编辑：新增、启停、复核、人工确认
 - DeepSeek 分析：情绪、影响力、摘要
-- Gmail 周报：备用 Gmail 自动发送到工作 Gmail
+- Gmail 晨报：备用 Gmail 自动发送到工作 Gmail
 - 股票折线图数据：支持历史回灌和网页折线展示
 
 ## 1. 快速启动
@@ -36,7 +36,7 @@ python main.py
 - `STOCK_TICKERS_CSV` 自定义追踪股票
 - `INGEST_CRON_HOUR` / `INGEST_CRON_MINUTE` 每日自动抓取时间（默认 05:00，按 `TIMEZONE`）
 - `STOCK_INTERVAL_MINUTES` 股票快照抓取频率
-- `WEEKLY_CRON_*` 周报时间（按 `TIMEZONE`）
+- `WEEKLY_CRON_*` 晨报时间（按 `TIMEZONE`，默认周一/周四 07:00）
 
 ## 3. Web 面板功能
 

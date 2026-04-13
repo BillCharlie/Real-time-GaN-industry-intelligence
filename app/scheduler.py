@@ -72,9 +72,9 @@ class RuntimeScheduler:
 
     def _weekly_report_job(self) -> None:
         if not self.settings.email_enabled:
-            logger.warning("Weekly report skipped: email not configured.")
+            logger.warning("Morning report skipped: email not configured.")
             return
         with SessionLocal() as session:
             subject, text_body, html_body, stats = build_weekly_report(session, self.settings, self.deepseek)
             send_weekly_email(session, self.settings, subject, text_body, html_body)
-            logger.info("Weekly report sent: %s", stats)
+            logger.info("Morning report sent: %s", stats)

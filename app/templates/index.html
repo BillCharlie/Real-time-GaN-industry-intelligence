@@ -72,7 +72,7 @@
       <button id="btnEnrichContent">补全摘要/正文</button>
       <button id="btnStocks">刷新股票快照</button>
       <button id="btnBackfillStocks">抓取股票折线历史</button>
-      <button id="btnWeekly">发送周报</button>
+      <button id="btnWeekly">发送晨报</button>
     </div>
   </section>
 
@@ -828,7 +828,7 @@ el("q").addEventListener("keydown",(event)=>{if(event.key==="Enter") loadArticle
 el("btnIngest").addEventListener("click",()=>runIngestTask());
 el("btnEnrichContent").addEventListener("click",()=>enrichContentTask());
 el("btnStocks").addEventListener("click",()=>runTask("btnStocks","/api/tasks/stocks","股价快照刷新完成"));
-el("btnWeekly").addEventListener("click",()=>runTask("btnWeekly","/api/tasks/send-weekly","周报发送完成"));
+el("btnWeekly").addEventListener("click",()=>runTask("btnWeekly","/api/tasks/send-weekly","晨报发送完成"));
 el("btnBackfillStocks").addEventListener("click",()=>backfillStockLines());
 el("btnLoadChart").addEventListener("click",()=>loadChart().catch((e)=>setStatus(String(e))));
 el("btnAddSource").addEventListener("click",()=>addSource().catch((e)=>setSourceStatus(String(e))));

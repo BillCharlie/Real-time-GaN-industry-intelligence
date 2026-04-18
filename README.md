@@ -20,7 +20,7 @@ Copy-Item .env.example .env
 python main.py
 ```
 
-打开 `http://127.0.0.1:8787/`
+打开 `http://127.0.0.1:8001/`
 
 ## 2. 必填配置（.env）
 

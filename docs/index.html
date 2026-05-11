@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>GaNIndustry Monitor-assistant</title>
+  <script src="https://s3.tradingview.com/tv.js"></script>
   <style>
     :root{--bg:#f5f8fa;--panel:#fff;--text:#0f2331;--muted:#5f7280;--line:#dbe6ee;--pri:#176087;--pri2:#2d89b2}
     *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
@@ -159,13 +160,9 @@
         </div>
         <div class="main-pages" id="mainPages">
           <div class="panel main-card">
-            <h2>股票监控与折线图</h2>
-            <div class="form-row-inline">
-              <div class="form-row"><label>Ticker</label><select id="chartTicker"></select></div>
-              <div class="form-row"><label>点数</label><input id="chartPoints" type="number" min="20" max="2000" value="240"></div>
-            </div>
-            <button id="btnLoadChart" class="mini">加载折线图</button>
-            <div class="chart-wrap"><canvas id="stockChart" width="920" height="230"></canvas><div id="chartHint" class="muted"></div></div>
+            <h2>股票监控</h2>
+            <div class="form-row"><label>Ticker</label><select id="chartTicker"></select></div>
+            <div id="tvChartContainer" style="margin-top:8px;border-radius:10px;overflow:hidden;min-height:400px"></div>
             <table class="stock-table" style="margin-top:10px">
               <thead><tr><th>Ticker</th><th>Price</th><th>Change %</th><th>Volume</th><th>Time</th></tr></thead>
               <tbody id="stocksBody"></tbody>
@@ -554,21 +551,31 @@ function renderCompanyList(items){
     </div>
   </div>`).join("");
 }
-function drawLineChart(points,ticker){
-  const canvas=el("stockChart"), hint=el("chartHint"), ctx=canvas.getContext("2d"), w=canvas.width, h=canvas.height;
-  ctx.clearRect(0,0,w,h); ctx.fillStyle="#fcfeff"; ctx.fillRect(0,0,w,h);
-  if(!points.length){hint.textContent=`Ticker ${ticker} 暂无折线数据`;return;}
-  const prices=points.map((p)=>Number(p.price)).filter((x)=>Number.isFinite(x));
-  if(!prices.length){hint.textContent=`Ticker ${ticker} 数据无效`;return;}
-  const min=Math.min(...prices), max=Math.max(...prices), span=Math.max(max-min,1e-6);
-  const padL=36,padR=12,padT=14,padB=24,plotW=w-padL-padR,plotH=h-padT-padB;
-  ctx.strokeStyle="#d6e3ec"; ctx.lineWidth=1;
-  for(let i=0;i<=4;i+=1){const y=padT+(plotH*i/4); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(w-padR,y); ctx.stroke();}
-  ctx.strokeStyle="#176087"; ctx.lineWidth=2; ctx.beginPath();
-  points.forEach((p,idx)=>{const x=padL+(plotW*idx/Math.max(points.length-1,1)); const y=padT+((max-Number(p.price))/span)*plotH; if(idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);});
-  ctx.stroke();
-  const last=Number(points[points.length-1].price), first=Number(points[0].price), deltaPct=first?((last-first)/first*100):0;
-  hint.textContent=`${ticker} | ${points.length} 点 | 最低 ${min.toFixed(2)} / 最高 ${max.toFixed(2)} / 区间涨跌 ${deltaPct.toFixed(2)}%`;
+const TV_SYMBOL_MAP = {
+  NVTS:"NASDAQ:NVTS", ON:"NASDAQ:ON", STM:"NYSE:STM",
+  IFNNY:"OTC:IFNNY", WOLF:"NASDAQ:WOLF", TXN:"NASDAQ:TXN",
+  RNECY:"OTC:RNECY", MCHP:"NASDAQ:MCHP", ADI:"NASDAQ:ADI",
+};
+function loadTVChart(ticker){
+  const container=el("tvChartContainer");
+  if(!container) return;
+  container.innerHTML="";
+  const divId="tv_"+Date.now();
+  const div=document.createElement("div");
+  div.id=divId;
+  container.appendChild(div);
+  const symbol=TV_SYMBOL_MAP[ticker.toUpperCase()]||ticker.toUpperCase();
+  if(typeof TradingView==="undefined") return;
+  new TradingView.widget({
+    width:"100%", height:400,
+    symbol, interval:"D",
+    timezone:"Asia/Taipei",
+    theme:"light", style:"1", locale:"zh_TW",
+    toolbar_bg:"#f1f3f6",
+    enable_publishing:false,
+    allow_symbol_change:true,
+    container_id:divId,
+  });
 }
 async function loadApiConfig(){
   try{
@@ -723,11 +730,9 @@ async function syncCompanySources(){
   setCompanyStatus(`同步完成: created=${data.result.created}, activated=${data.result.activated}, deactivated=${data.result.deactivated}`);
   await Promise.all([loadCompanyWhitelist(),loadSourceList()]);
 }
-async function loadChart(){
-  const ticker=el("chartTicker").value, points=Number(el("chartPoints").value||240);
-  if(!ticker) return;
-  const data=await fetchJson(`/api/stocks/${ticker}/series?points=${points}`);
-  drawLineChart(data.items||[],ticker);
+function loadChart(){
+  const ticker=el("chartTicker").value;
+  if(ticker) loadTVChart(ticker);
 }
 async function runTask(btnId,url,successMsg){
   const btn=el(btnId), oldText=btn.textContent;
@@ -736,7 +741,7 @@ async function runTask(btnId,url,successMsg){
     await fetchJson(url,{method:"POST"});
     setStatus(successMsg);
     await Promise.all([loadArticles(),loadStats(),loadStocks()]);
-    await loadChart();
+    loadChart();
   }catch(error){setStatus(`执行失败: ${String(error).slice(0,180)}`);}
   finally{btn.disabled=false; btn.textContent=oldText;}
 }
@@ -748,7 +753,7 @@ async function runIngestTask(){
     const r=data.result||{};
     setStatus(`抓取完成: fetched=${r.fetched||0}, inserted=${r.inserted||0}, skipped=${r.skipped||0}, errors=${r.errors||0}`);
     await Promise.all([loadArticles(),loadStats(),loadStocks()]);
-    await loadChart();
+    loadChart();
   }catch(error){setStatus(`抓取失败: ${String(error).slice(0,180)}`);}
   finally{btn.disabled=false; btn.textContent=oldText;}
 }
@@ -859,12 +864,11 @@ el("btnEnrichContent").addEventListener("click",()=>enrichContentTask());
 el("btnStocks").addEventListener("click",()=>runTask("btnStocks","/api/tasks/stocks","股价快照刷新完成"));
 el("btnWeekly").addEventListener("click",()=>runTask("btnWeekly","/api/tasks/send-weekly","晨报发送完成"));
 el("btnBackfillStocks").addEventListener("click",()=>backfillStockLines());
-el("btnLoadChart").addEventListener("click",()=>loadChart().catch((e)=>setStatus(String(e))));
 el("btnAddSource").addEventListener("click",()=>addSource().catch((e)=>setSourceStatus(String(e))));
 el("btnAddCompany").addEventListener("click",()=>addCompany().catch((e)=>setCompanyStatus(String(e))));
 el("btnSyncCompanies").addEventListener("click",()=>syncCompanySources().catch((e)=>setCompanyStatus(String(e))));
 el("srcMacro").addEventListener("change",()=>loadSourceList().catch((e)=>setSourceStatus(String(e))));
-el("chartTicker").addEventListener("change",()=>loadChart().catch((e)=>setStatus(String(e))));
+el("chartTicker").addEventListener("change",()=>loadChart());
 
 async function initialize(){
   try{
@@ -876,7 +880,7 @@ async function initialize(){
     await Promise.all([loadArticles(),loadStats(),loadStocks(),loadCompanyWhitelist()]);
     if(!el("chartTicker").options.length) el("chartTicker").innerHTML=defaultTickers.map((t)=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
     await loadSourceList();
-    await loadChart();
+    loadChart();
     setStatus("系统就绪");
     setSourceStatus("来源管理就绪");
     setCategoryStatus("分类树已就绪，可新增父分类与子分类");

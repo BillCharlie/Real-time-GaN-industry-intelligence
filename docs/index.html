@@ -184,12 +184,9 @@
 </div>
 
 <script>
-// ================================================================
-// BACKEND_URL: 指向 Render 後端的 URL（結尾不帶斜線）
-// 部署到 GitHub Pages 後，請將此處改為你的 Render 服務 URL
-// 例如: const BACKEND_URL = "https://ganiq.onrender.com";
-// ================================================================
-const BACKEND_URL = "https://ganiq.onrender.com";
+// BACKEND_URL 從 api-config.json 動態載入（與 stock-monitor 相同模式）
+// 更新後端 URL 只需修改 docs/api-config.json，不必改此檔案
+let BACKEND_URL = "";
 
 let defaultTickers = ["NVTS","ON","STM","IFNNY","WOLF","TXN","RNECY","MCHP","ADI"];
 let categoryRows = { macro: [], tech: [] };
@@ -573,6 +570,14 @@ function drawLineChart(points,ticker){
   const last=Number(points[points.length-1].price), first=Number(points[0].price), deltaPct=first?((last-first)/first*100):0;
   hint.textContent=`${ticker} | ${points.length} 点 | 最低 ${min.toFixed(2)} / 最高 ${max.toFixed(2)} / 区间涨跌 ${deltaPct.toFixed(2)}%`;
 }
+async function loadApiConfig(){
+  try{
+    const cfg = await fetch("./api-config.json").then(r => r.json());
+    if(cfg.apiBaseUrl) BACKEND_URL = cfg.apiBaseUrl.replace(/\/$/, "");
+  }catch(e){
+    console.warn("api-config.json not found, BACKEND_URL stays empty (same-origin mode)");
+  }
+}
 async function loadServerConfig(){
   try{
     const cfg = await fetchJson("/api/config");
@@ -873,6 +878,7 @@ async function initialize(){
   try{
     setupSidebarPager();
     setupMainPager();
+    await loadApiConfig();
     await loadServerConfig();
     await loadCategoryConfig();
     await Promise.all([loadArticles(),loadStats(),loadStocks(),loadCompanyWhitelist()]);

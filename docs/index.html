@@ -807,11 +807,7 @@ function setupSidebarPager(){
   const prev=el("sidePrev");
   const next=el("sideNext");
   if(!pages||!prev||!next) return;
-  const step=()=>{
-    const card=pages.querySelector(".side-card");
-    if(!card) return 420;
-    return Math.max(card.getBoundingClientRect().width,320);
-  };
+  const step=()=>pages.clientWidth||420;
   prev.addEventListener("click",()=>pages.scrollBy({left:-step(),behavior:"smooth"}));
   next.addEventListener("click",()=>pages.scrollBy({left:step(),behavior:"smooth"}));
 }
@@ -820,11 +816,7 @@ function setupMainPager(){
   const prev=el("mainPrev");
   const next=el("mainNext");
   if(!pages||!prev||!next) return;
-  const step=()=>{
-    const card=pages.querySelector(".main-card");
-    if(!card) return 640;
-    return Math.max(card.getBoundingClientRect().width,420);
-  };
+  const step=()=>pages.clientWidth||640;
   prev.addEventListener("click",()=>pages.scrollBy({left:-step(),behavior:"smooth"}));
   next.addEventListener("click",()=>pages.scrollBy({left:step(),behavior:"smooth"}));
   let scrollRaf=0;

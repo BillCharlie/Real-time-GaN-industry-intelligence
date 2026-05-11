@@ -5,7 +5,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -518,6 +518,23 @@ def api_stock_backfill(
             max_rows_per_ticker=max_rows_per_ticker,
         )
         return {"ok": True, "result": result, "period": period, "interval": interval}
+
+
+@app.post("/api/admin/upload-db")
+async def api_upload_db(token: str = Query(...), file: UploadFile = File(...)):
+    """Temporary endpoint to upload a SQLite DB file. Protected by ADMIN_TOKEN env var."""
+    import os, shutil
+    expected = os.getenv("ADMIN_TOKEN", "")
+    if not expected or token != expected:
+        raise HTTPException(status_code=403, detail="Invalid token")
+    from .db import engine
+    db_path = settings.db_url.replace("sqlite:///", "").replace("sqlite://", "")
+    engine.dispose()
+    tmp = db_path + ".tmp"
+    with open(tmp, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    os.replace(tmp, db_path)
+    return {"ok": True, "size": os.path.getsize(db_path)}
 
 
 @app.post("/api/tasks/send-weekly")

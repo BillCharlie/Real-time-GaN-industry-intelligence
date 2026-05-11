@@ -178,6 +178,17 @@ def index(request: Request):
     )
 
 
+@app.get("/api/config")
+def api_config():
+    return {
+        "project_name": settings.project_name,
+        "deepseek_enabled": deepseek_client.enabled,
+        "email_enabled": settings.email_enabled,
+        "timezone": settings.timezone,
+        "stock_tickers": settings.stock_tickers,
+    }
+
+
 @app.get("/api/articles")
 def api_articles(
     macro: Optional[str] = Query(default=None),

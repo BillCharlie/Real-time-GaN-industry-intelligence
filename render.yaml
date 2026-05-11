@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: ganiq
+    runtime: python
+    region: singapore  # closest to Taiwan
+    plan: starter      # Starter plan required for persistent disk ($7/month)
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DB_URL
+        value: sqlite:////data/ganiq.db
+      - key: DEEPSEEK_ENABLED
+        value: "true"
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEEPSEEK_BASE_URL
+        value: https://api.deepseek.com
+      - key: DEEPSEEK_MODEL
+        value: deepseek-chat
+      - key: TIMEZONE
+        value: Asia/Taipei
+      - key: STOCK_TICKERS_CSV
+        value: NVTS,ON,STM,IFNNY,WOLF,TXN,RNECY,MCHP,ADI
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: GMAIL_TO
+        sync: false
+    disk:
+      name: ganiq-data
+      mountPath: /data
+      sizeGB: 1

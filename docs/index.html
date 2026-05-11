@@ -1,0 +1,890 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GaNIndustry Monitor-assistant</title>
+  <style>
+    :root{--bg:#f5f8fa;--panel:#fff;--text:#0f2331;--muted:#5f7280;--line:#dbe6ee;--pri:#176087;--pri2:#2d89b2}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+    .wrap{max-width:1520px;margin:0 auto;padding:16px}
+    .hero{background:linear-gradient(135deg,#0d3850,#176087 45%,#1f6b90);color:#fff;border-radius:14px;padding:16px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+    .hero h1{margin:0;font-size:26px}.sub{margin-top:4px;opacity:.9;font-size:13px}.hero-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .stats-row{margin-top:12px}
+    .layout{margin-top:12px;display:grid;grid-template-columns:minmax(420px,540px) 1fr;gap:12px;align-items:start}
+    aside{min-width:0}
+    main{min-width:0}
+    .sidebar-shell{display:flex;flex-direction:column;gap:8px;overflow:hidden}
+    .sidebar-nav{display:flex;justify-content:flex-end;gap:6px}
+    .sidebar-pages{display:flex;gap:0;width:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-snap-stop:always;scrollbar-width:none;-ms-overflow-style:none}
+    .sidebar-pages::-webkit-scrollbar{display:none}
+    .sidebar-pages .panel{margin-top:0 !important}
+    .side-card{flex:0 0 100%;scroll-snap-align:start;min-width:0}
+    .main-shell{display:flex;flex-direction:column;gap:8px;overflow:hidden}
+    .main-nav{display:flex;justify-content:flex-end;gap:6px}
+    .main-pages{display:flex;gap:0;width:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-snap-stop:always;scrollbar-width:none;-ms-overflow-style:none}
+    .main-pages::-webkit-scrollbar{display:none}
+    .main-pages .panel{margin-top:0 !important}
+    .main-card{flex:0 0 100%;scroll-snap-align:start;min-width:0}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+    .panel h2{margin:0 0 10px;font-size:16px}
+    .form-row{margin-bottom:8px}.form-row-inline{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+    input,select{width:100%;border:1px solid #cfdde8;border-radius:8px;padding:8px 10px;background:#fff}
+    button{border:1px solid var(--line);border-radius:9px;padding:8px 12px;background:#fff;color:var(--text);font-weight:600;cursor:pointer}
+    button.primary{background:linear-gradient(90deg,var(--pri),var(--pri2));color:#fff;border-color:transparent}
+    button.secondary{background:#edf6fb;color:#0b3955;border-color:#c4dced} button.mini{padding:6px 10px;font-size:12px}
+    .status{margin-top:8px;min-height:18px;color:#0b3955;font-size:12px}.muted{color:var(--muted);font-size:12px}
+    .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+    .stat-box{background:#f6fafc;border:1px solid #d7e5ef;border-radius:10px;padding:8px;text-align:center}.stat-box strong{display:block;font-size:24px;color:#0c4c6d}
+    .bar-line{display:grid;grid-template-columns:140px 1fr 44px;gap:7px;align-items:center;font-size:12px}.bar-box{height:12px;border-radius:99px;background:#eef4f8;overflow:hidden}.bar{height:100%;border-radius:inherit;min-width:2px}
+    .articles{display:flex;flex-direction:column;gap:10px;max-height:860px;overflow:auto;padding-right:4px}
+    .article{border:1px solid #dbe6ee;border-radius:10px;padding:10px;background:#fff}.article .title{color:#0b344f;text-decoration:none;font-weight:700;font-size:15px}.article .meta{margin-top:6px;color:#5f7280;font-size:12px;display:flex;gap:8px;flex-wrap:wrap}
+    .summary,.content-preview,.analysis{margin-top:8px;font-size:13px;line-height:1.5;white-space:pre-wrap}.content-preview,.analysis{font-size:12px;border:1px solid #dfe8ee;border-radius:8px;padding:8px;background:#f8fbfc}
+    .source-list,.company-list,.category-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}.source-item,.company-item,.category-item{border:1px solid #dbe6ee;border-radius:10px;padding:10px;background:#fff}
+    .tree-root{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+    .tree-group-header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px}
+    .tree-group-title{font-size:12px;color:var(--muted);font-weight:700}
+    .tree-node{display:flex;align-items:center;gap:8px;border:1px solid #dbe6ee;border-radius:10px;padding:8px;background:#fff}
+    .tree-name{font-size:13px;font-weight:700;color:#16384c;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .tree-actions{display:flex;gap:6px;flex-wrap:wrap}
+    .tree-children{display:flex;flex-direction:column;gap:8px;margin-top:6px;border-left:2px solid #e3edf4;padding-left:12px}
+    .tree-children.collapsed{display:none}
+    .tree-inline-create{margin-top:6px;border:1px dashed #c8d7e2;border-radius:8px;padding:8px;background:#fbfdff;display:flex;flex-direction:column;gap:6px}
+    .tree-inline-actions{display:flex;gap:6px;flex-wrap:wrap}
+    .source-title,.company-title,.category-title{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.source-title a{color:#0b344f;text-decoration:none;font-weight:700;word-break:break-all}
+    .badge{display:inline-block;font-size:11px;border-radius:999px;padding:3px 8px;font-weight:700}.badge-verified{background:#d1fae5;color:#065f46}.badge-unverified{background:#ffedd5;color:#9a3412}.badge-failed{background:#fee2e2;color:#991b1b}.badge-on{background:#e0f2fe;color:#075985}.badge-off{background:#e5e7eb;color:#374151}
+    .source-meta,.company-meta,.category-meta{margin-top:4px;font-size:12px;color:var(--muted)}.source-actions,.company-actions,.category-actions{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+    .chart-wrap{margin-top:8px;border:1px solid #d9e6ee;border-radius:10px;padding:8px;background:#fff}canvas{width:100%;height:auto;display:block}.stock-table{width:100%;border-collapse:collapse;font-size:12px}.stock-table th,.stock-table td{border-bottom:1px solid #e2eaf0;padding:6px;text-align:left}.up{color:#0f766e}.down{color:#b91c1c}
+    @media(max-width:1120px){.layout{grid-template-columns:1fr}.hero{flex-direction:column;align-items:flex-start}.form-row-inline,.stats-grid{grid-template-columns:1fr}.side-card,.main-card{flex:0 0 100%}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div>
+      <h1 id="heroTitle">GaNIndustry Monitor-assistant</h1>
+      <div class="sub">企业白名单: VIS / Infineon / onsemi / ST / Navitas / Wolfspeed / TI / Renesas</div>
+      <div class="sub">Timezone: <span id="cfgTz">Asia/Taipei</span> | DeepSeek: <span id="cfgDeepSeek">-</span> | Gmail: <span id="cfgEmail">-</span></div>
+    </div>
+    <div class="hero-actions">
+      <button id="btnIngest" class="primary">立即抓取</button>
+      <button id="btnEnrichContent">补全摘要/正文</button>
+      <button id="btnStocks">刷新股票快照</button>
+      <button id="btnBackfillStocks">抓取股票折线历史</button>
+      <button id="btnWeekly">发送晨报</button>
+    </div>
+  </section>
+
+  <section class="stats-row">
+    <div class="panel">
+      <h2>分类统计 (7天)</h2>
+      <div class="stats-grid">
+        <div class="stat-box">文章数<strong id="statArticles">0</strong></div>
+        <div class="stat-box">DeepSeek<strong id="statDeepSeek">-</strong></div>
+        <div class="stat-box">邮件<strong id="statEmail">-</strong></div>
+      </div>
+      <div class="form-row"><label>一级分类分布</label><div id="macroBars"></div></div>
+      <div class="form-row"><label>技术分类分布</label><div id="techBars"></div></div>
+    </div>
+  </section>
+
+  <section class="layout">
+    <aside>
+      <div class="sidebar-shell">
+        <div class="sidebar-nav">
+          <button id="sidePrev" class="mini" type="button">◀</button>
+          <button id="sideNext" class="mini" type="button">▶</button>
+        </div>
+        <div class="sidebar-pages" id="sidebarPages">
+      <div class="panel side-card">
+        <h2>情报筛选</h2>
+        <div class="form-row"><label>一级分类</label><select id="macro"><option value="">全部</option></select></div>
+        <div class="form-row"><label>技术分类</label><select id="tech"><option value="">全部</option></select></div>
+        <div class="form-row"><label>关键词</label><input id="q" placeholder="GaN HEMT / fast charger / data center"></div>
+        <div class="form-row"><label>回看天数</label><input id="days" type="number" min="1" max="180" value="30"></div>
+        <div class="form-row-inline">
+          <div class="form-row"><label>开始日期</label><input id="dateFrom" type="date"></div>
+          <div class="form-row"><label>结束日期</label><input id="dateTo" type="date"></div>
+        </div>
+        <button id="btnClearDate" class="mini" style="width:100%;margin-bottom:8px">清除日期区间</button>
+        <button id="btnFilter" class="primary" style="width:100%">应用筛选</button>
+        <div id="status" class="status"></div>
+      </div>
+
+      <div class="panel side-card" style="margin-top:12px">
+        <h2>分类目录（文件树）</h2>
+        <div class="muted" style="margin-top:8px">直接在树节点点击"新建子分类"，或在组标题点击"新建一级分类"。无需顶部填写栏。</div>
+        <div id="categoryStatus" class="status"></div>
+        <div id="categoryTree" class="tree-root"></div>
+      </div>
+
+      <div class="panel side-card" style="margin-top:12px">
+        <h2>资讯来源</h2>
+        <div class="form-row"><label>一级分类</label><select id="srcMacro"><option value="">全部</option></select></div>
+        <div class="form-row"><label>来源名称</label><input id="srcName" placeholder="IEEE Spectrum Power"></div>
+        <div class="form-row"><label>来源 URL</label><input id="srcUrl" placeholder="https://..."></div>
+        <div class="form-row-inline">
+          <div class="form-row"><label>来源类型</label><select id="srcType"><option value="rss">rss</option><option value="crossref">crossref</option><option value="arxiv">arxiv</option></select></div>
+          <div class="form-row"><label>参数 JSON (可选)</label><input id="srcParams" placeholder='{"query":"gallium nitride"}'></div>
+        </div>
+        <button id="btnAddSource" class="secondary" style="width:100%">新增来源</button>
+        <div class="muted" style="margin-top:8px">系统来源仅支持启用/停用；你手动新增的来源支持删除。校验规则：URL 可访问 + 命中可信域名 = verified。</div>
+        <div id="sourceStatus" class="status"></div>
+        <div id="sourceList" class="source-list"></div>
+      </div>
+
+      <div class="panel side-card" style="margin-top:12px">
+        <h2>企业白名单配置</h2>
+        <div class="form-row-inline">
+          <div class="form-row"><label>企业名称</label><input id="companyName" placeholder="Infineon"></div>
+          <div class="form-row"><label>官网域名</label><input id="companyDomain" placeholder="infineon.com"></div>
+        </div>
+        <div class="form-row"><label>备注 (可选)</label><input id="companyNote" placeholder="官方新闻页优先"></div>
+        <button id="btnAddCompany" class="secondary" style="width:100%">新增企业到白名单</button>
+        <button id="btnSyncCompanies" class="mini" style="margin-top:8px">同步白名单到来源库</button>
+        <div class="muted" style="margin-top:8px">预置企业仅支持启用/停用；你手动新增的企业支持删除。</div>
+        <div id="companyStatus" class="status"></div>
+        <div id="companyList" class="company-list"></div>
+      </div>
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <div class="main-shell">
+        <div class="main-nav">
+          <button id="mainPrev" class="mini" type="button">◀</button>
+          <button id="mainNext" class="mini" type="button">▶</button>
+        </div>
+        <div class="main-pages" id="mainPages">
+          <div class="panel main-card">
+            <h2>股票监控与折线图</h2>
+            <div class="form-row-inline">
+              <div class="form-row"><label>Ticker</label><select id="chartTicker"></select></div>
+              <div class="form-row"><label>点数</label><input id="chartPoints" type="number" min="20" max="2000" value="240"></div>
+            </div>
+            <button id="btnLoadChart" class="mini">加载折线图</button>
+            <div class="chart-wrap"><canvas id="stockChart" width="920" height="230"></canvas><div id="chartHint" class="muted"></div></div>
+            <table class="stock-table" style="margin-top:10px">
+              <thead><tr><th>Ticker</th><th>Price</th><th>Change %</th><th>Volume</th><th>Time</th></tr></thead>
+              <tbody id="stocksBody"></tbody>
+            </table>
+          </div>
+
+          <div class="panel main-card">
+            <h2>最新情报流</h2>
+            <div class="muted">使用左侧"情报筛选"进行分类筛选，点击标题可打开原文。</div>
+            <div id="articles" class="articles"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </section>
+</div>
+
+<script>
+// ================================================================
+// BACKEND_URL: 指向 Render 後端的 URL（結尾不帶斜線）
+// 部署到 GitHub Pages 後，請將此處改為你的 Render 服務 URL
+// 例如: const BACKEND_URL = "https://ganiq.onrender.com";
+// ================================================================
+const BACKEND_URL = "https://ganiq.onrender.com";
+
+let defaultTickers = ["NVTS","ON","STM","IFNNY","WOLF","TXN","RNECY","MCHP","ADI"];
+let categoryRows = { macro: [], tech: [] };
+let categoryTreeRows = { macro: [], tech: [] };
+let macroMap = {};
+let techMap = {};
+let macroPathMap = {};
+let techPathMap = {};
+let macroKeys = [];
+let techKeys = [];
+let macroToTechKeys = {};
+let techToMacroKey = {};
+let techToMacroAnyKey = {};
+let categoryById = {};
+let categoryCreateContext = { groupType: null, parentId: null, parentLabel: "", mode: "root" };
+const collapsedTreeNodes = new Set();
+
+const el = (id) => document.getElementById(id);
+const statusEl = el("status");
+const sourceStatusEl = el("sourceStatus");
+const companyStatusEl = el("companyStatus");
+const categoryStatusEl = el("categoryStatus");
+
+function setStatus(msg){statusEl.textContent = msg || "";}
+function setSourceStatus(msg){sourceStatusEl.textContent = msg || "";}
+function setCompanyStatus(msg){companyStatusEl.textContent = msg || "";}
+function setCategoryStatus(msg){categoryStatusEl.textContent = msg || "";}
+function escapeHtml(v){return String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#39;");}
+function fmtNum(v){return (v ?? "-").toLocaleString ? v.toLocaleString() : v;}
+function fmtDate(s){if(!s) return "-"; const d = new Date(s); return Number.isNaN(d.getTime()) ? s : d.toLocaleString();}
+function fmtPct(v){if(v===null||v===undefined) return "-"; return `${Number(v).toFixed(2)}%`;}
+function clipText(text,limit=520){if(!text) return ""; const raw=String(text).trim(); return raw.length<=limit?raw:`${raw.slice(0,limit)}...`;}
+const knownKeyLabels = {
+  academic:"学术",
+  industry:"产业",
+  stock:"股市",
+  low_power:"低功率",
+  high_power:"高功率",
+  high_frequency:"高频",
+  materials:"材料",
+  packaging:"封装",
+  other:"其他",
+};
+function normalizeDisplayLabel(value,key){
+  const text=String(value||"").trim();
+  if(!text) return "";
+  if(String(key||"").trim()===text) return "";
+  if(text.includes("?")) return "";
+  return text;
+}
+function readableKey(rawKey){
+  const key=String(rawKey||"").trim();
+  if(!key) return "未命名分类";
+  if(/^cat_[0-9a-f]{6,}$/i.test(key)) return "未命名分类";
+  if(knownKeyLabels[key]) return knownKeyLabels[key];
+  if(key.startsWith("academic_")||key.startsWith("industry_")){
+    const parts=key.split("_");
+    const prefix=parts.shift()||"";
+    const suffix=parts.join("_");
+    const prefixLabel=prefix==="academic"?"学术":"产业";
+    const suffixLabel=knownKeyLabels[suffix]||suffix.replace(/_/g," ");
+    return `${prefixLabel} / ${suffixLabel}`;
+  }
+  return key.replace(/_/g," ");
+}
+function displayCategoryName(type,key,{path=false,fallbackLabel=""}={}){
+  const safeKey=String(key||"").trim();
+  const labelMap=type==="macro"
+    ? (path?macroPathMap:macroMap)
+    : (path?techPathMap:techMap);
+  const label=normalizeDisplayLabel(labelMap[safeKey],safeKey)||normalizeDisplayLabel(fallbackLabel,safeKey);
+  return label||readableKey(safeKey);
+}
+function moduleLabel(type,key){return displayCategoryName(type,key,{path:true});}
+function sortCategoryRows(rows){return [...(rows||[])].sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.key||"").localeCompare(String(b.key||"")));}
+function sortCategoryTree(nodes){
+  return sortCategoryRows(nodes||[]).map((node)=>({...node,children:sortCategoryTree(node.children||[])}));
+}
+function flattenCategoryTree(nodes,acc=[]){
+  (nodes||[]).forEach((node)=>{acc.push(node); flattenCategoryTree(node.children||[],acc);});
+  return acc;
+}
+function buildPathMaps(treeRows){
+  const labelMap={}; const pathMap={}; const allRows=[];
+  function walk(nodes,prefix=""){
+    (nodes||[]).forEach((node)=>{
+      const label=displayCategoryName(node.group_type,node.key,{path:false,fallbackLabel:node.label});
+      const path=prefix?`${prefix} / ${label}`:label;
+      labelMap[node.key]=label;
+      pathMap[node.key]=path;
+      allRows.push(node);
+      walk(node.children||[],path);
+    });
+  }
+  walk(treeRows||[]);
+  return {labelMap,pathMap,allRows};
+}
+function buildSelectOptions(keys,labelMap,selectedKey){
+  const rows=[...keys]; if(selectedKey&&!rows.includes(selectedKey)) rows.unshift(selectedKey);
+  const active=new Set(keys);
+  return rows.map((key)=>`<option value="${escapeHtml(key)}" ${key===selectedKey?"selected":""}>${escapeHtml((labelMap[key]||key)+(active.has(key)?"":" (inactive)"))}</option>`).join("");
+}
+function sourceStatusBadge(status){if(status==="verified") return `<span class="badge badge-verified">verified</span>`; if(status==="failed") return `<span class="badge badge-failed">failed</span>`; return `<span class="badge badge-unverified">unverified</span>`;}
+function uniqKeys(keys){return [...new Set((keys||[]).filter((x)=>Boolean(x)))];}
+function collectTechKeys(node,macroKey,activeBucket,allMap){
+  if(!node) return;
+  if(node.group_type==="tech"){
+    allMap[node.key]=macroKey;
+    if(node.active){
+      activeBucket.push(node.key);
+      techToMacroKey[node.key]=macroKey;
+    }
+  }
+  (node.children||[]).forEach((child)=>collectTechKeys(child,macroKey,activeBucket,allMap));
+}
+function getTechKeysForMacro(macroKey){
+  if(macroKey&&Array.isArray(macroToTechKeys[macroKey])) return macroToTechKeys[macroKey];
+  return techKeys;
+}
+function refreshTechFilterOptions(macroKey,selectedTech){
+  const techSel=el("tech");
+  const available=getTechKeysForMacro(macroKey);
+  techSel.innerHTML=`<option value="">全部</option>${available.map((k)=>`<option value="${escapeHtml(k)}">${escapeHtml(displayCategoryName("tech",k,{path:true}))}</option>`).join("")}`;
+  techSel.value=available.includes(selectedTech)?selectedTech:"";
+  return available;
+}
+function fillFilterSelects(){
+  const macroSel=el("macro"), techSel=el("tech");
+  const prevMacro=macroSel.value, prevTech=techSel.value;
+  macroSel.innerHTML=`<option value="">全部</option>${macroKeys.map((k)=>`<option value="${escapeHtml(k)}">${escapeHtml(displayCategoryName("macro",k,{path:false}))}</option>`).join("")}`;
+  const nextMacro=macroKeys.includes(prevMacro)?prevMacro:"";
+  macroSel.value=nextMacro;
+  refreshTechFilterOptions(nextMacro,prevTech);
+}
+function fillSourceCategorySelects(){
+  const macroSel=el("srcMacro");
+  const prevMacro=macroSel.value;
+  macroSel.innerHTML=`<option value="">全部</option>${macroKeys.map((k)=>`<option value="${escapeHtml(k)}">${escapeHtml(displayCategoryName("macro",k,{path:false}))}</option>`).join("")}`;
+  const nextMacro=macroKeys.includes(prevMacro)?prevMacro:"";
+  macroSel.value=nextMacro;
+}
+function resolveSourceModuleSelection(){
+  const macroKey=el("srcMacro").value;
+  if(macroKey) return {module_type:"macro",module_key:macroKey};
+  return {module_type:"",module_key:""};
+}
+function applyCategoryData(data){
+  categoryTreeRows={
+    macro:sortCategoryTree((data.tree&&data.tree.macro)||[]),
+    tech:sortCategoryTree((data.tree&&data.tree.tech)||[])
+  };
+  categoryRows={
+    macro:flattenCategoryTree(categoryTreeRows.macro,[]),
+    tech:flattenCategoryTree(categoryTreeRows.tech,[])
+  };
+  const allMacro=categoryRows.macro, allTech=categoryRows.tech;
+  categoryById={};
+  [...allMacro,...allTech].forEach((row)=>{categoryById[String(row.id)]=row;});
+  macroMap=Object.fromEntries(allMacro.map((x)=>[x.key,normalizeDisplayLabel(x.label,x.key)||readableKey(x.key)]));
+  techMap=Object.fromEntries(allTech.map((x)=>[x.key,normalizeDisplayLabel(x.label,x.key)||readableKey(x.key)]));
+  const allTreeRoots=[...categoryTreeRows.macro,...categoryTreeRows.tech];
+  const pathInfo=buildPathMaps(allTreeRoots);
+  macroPathMap={};
+  techPathMap={};
+  allMacro.forEach((row)=>{macroPathMap[row.key]=pathInfo.pathMap[row.key]||displayCategoryName("macro",row.key,{path:false,fallbackLabel:row.label});});
+  allTech.forEach((row)=>{techPathMap[row.key]=pathInfo.pathMap[row.key]||displayCategoryName("tech",row.key,{path:false,fallbackLabel:row.label});});
+
+  const macroRoots=(categoryTreeRows.macro||[]).filter((x)=>x.group_type==="macro");
+  const activeMacroRoots=macroRoots.filter((x)=>x.active);
+  macroKeys=activeMacroRoots.map((x)=>x.key);
+
+  techToMacroKey={};
+  techToMacroAnyKey={};
+  macroToTechKeys={};
+  activeMacroRoots.forEach((root)=>{
+    const bucket=[];
+    (root.children||[]).forEach((child)=>collectTechKeys(child,root.key,bucket,techToMacroAnyKey));
+    macroToTechKeys[root.key]=uniqKeys(bucket);
+  });
+  const orphanActiveTech=(categoryTreeRows.tech||[]).flatMap((node)=>flattenCategoryTree([node],[])).filter((x)=>x.group_type==="tech"&&x.active&&!(x.key in techToMacroKey)).map((x)=>x.key);
+  techKeys=uniqKeys([...Object.values(macroToTechKeys).flat(), ...orphanActiveTech]);
+
+  const validTreeTokens=new Set([...allMacro,...allTech].map((x)=>`${x.group_type}:${x.key}`));
+  [...collapsedTreeNodes].forEach((token)=>{if(!validTreeTokens.has(token)) collapsedTreeNodes.delete(token);});
+
+  fillFilterSelects();
+  fillSourceCategorySelects();
+  renderCategoryTree();
+}
+function openCreateCategory(groupType,parentId,parentLabel,mode="child"){
+  categoryCreateContext={
+    groupType:groupType||"macro",
+    parentId:(parentId===null||parentId===undefined)?null:Number(parentId),
+    parentLabel:String(parentLabel||""),
+    mode
+  };
+  if(categoryCreateContext.parentId!==null){
+    const parentRow=categoryById[String(categoryCreateContext.parentId)];
+    if(parentRow){
+      collapsedTreeNodes.delete(`${parentRow.group_type}:${parentRow.key}`);
+    }
+  }
+  renderCategoryTree();
+  setTimeout(()=>{
+    const input=el("catNewLabel");
+    if(input) input.focus();
+  },0);
+}
+function toggleCategoryNodeFold(nodeToken){
+  const token=String(nodeToken||"").trim();
+  if(!token) return;
+  if(collapsedTreeNodes.has(token)) collapsedTreeNodes.delete(token);
+  else collapsedTreeNodes.add(token);
+  renderCategoryTree();
+}
+function cancelCreateCategory(){
+  categoryCreateContext={groupType:null,parentId:null,parentLabel:"",mode:"root"};
+  renderCategoryTree();
+}
+async function submitCreateCategory(){
+  if(!categoryCreateContext.groupType){setCategoryStatus("请先选择要创建的位置");return;}
+  const labelInput=el("catNewLabel");
+  const keyInput=el("catNewKey");
+  const label=String(labelInput?.value||"").trim();
+  const key=String(keyInput?.value||"").trim();
+  if(!label){setCategoryStatus("请输入分类名称");return;}
+  const payload={
+    group_type:categoryCreateContext.groupType,
+    key:key||"",
+    label,
+    parent_id:categoryCreateContext.parentId,
+    active:true
+  };
+  try{
+    await fetchJson("/api/categories",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    setCategoryStatus(`分类已创建: ${label}`);
+    cancelCreateCategory();
+    await Promise.all([loadCategoryConfig(),loadArticles(),loadStats(),loadSourceList()]);
+  }catch(error){
+    setCategoryStatus(`创建失败: ${String(error).slice(0,180)}`);
+  }
+}
+function renderCategoryTree(){
+  const box=el("categoryTree");
+  const roots=categoryTreeRows.macro||[];
+  const floatingTech=categoryTreeRows.tech||[];
+  function renderCreateForm(hint){
+    return `<div class="tree-inline-create">
+      <input id="catNewLabel" placeholder="${escapeHtml(hint)}">
+      <input id="catNewKey" placeholder="字段 key（可选）">
+      <div class="tree-inline-actions">
+        <button class="mini secondary" onclick="submitCreateCategory()">创建</button>
+        <button class="mini" onclick="cancelCreateCategory()">取消</button>
+      </div>
+    </div>`;
+  }
+  function renderNodes(nodes,depth=0){
+    return (nodes||[]).map((node)=>{
+      const hasChildren=Array.isArray(node.children)&&node.children.length>0;
+      const indent=depth*16;
+      const currentPath=displayCategoryName(node.group_type,node.key,{path:true,fallbackLabel:node.label});
+      const nodeLabel=displayCategoryName(node.group_type,node.key,{path:false,fallbackLabel:node.label});
+      const nodeToken=`${node.group_type}:${node.key}`;
+      const isCollapsed=hasChildren&&collapsedTreeNodes.has(nodeToken);
+      const shouldShowCreate=Number(categoryCreateContext.parentId)===Number(node.id)&&categoryCreateContext.mode==="child";
+      const childGroupType="tech";
+      return `<div class="tree-item">
+        <div class="tree-node" style="margin-left:${indent}px">
+          <span class="tree-name">${escapeHtml(nodeLabel)}</span>
+          <span class="badge ${node.active?"badge-on":"badge-off"}">${node.active?"启用":"停用"}</span>
+          <div class="tree-actions">
+            ${hasChildren?`<button class="mini" onclick="toggleCategoryNodeFold('${nodeToken}')">${isCollapsed?"展开":"收起"}</button>`:""}
+            <button class="mini" onclick="openCreateCategory('${childGroupType}', ${node.id}, '${escapeHtml(currentPath).replace(/'/g,"\\'")}', 'child')">新建子分类</button>
+            <button class="mini" onclick="renameCategory(${node.id}, '${escapeHtml(nodeLabel).replace(/'/g,"\\'")}')">改名</button>
+            <button class="mini" onclick="toggleCategoryActive(${node.id}, ${node.active?"false":"true"})">${node.active?"停用":"启用"}</button>
+            <button class="mini" onclick="deleteCategory(${node.id})">删除</button>
+          </div>
+        </div>
+        <div class="tree-children ${isCollapsed?"collapsed":""}">
+          ${shouldShowCreate?renderCreateForm(`在"${currentPath}"下新建分类`):""}
+          ${hasChildren?renderNodes(node.children,depth+1):""}
+        </div>
+      </div>`;
+    }).join("");
+  }
+  const showRootCreate=categoryCreateContext.groupType==="macro"&&categoryCreateContext.parentId===null&&categoryCreateContext.mode==="root";
+  let html=`<div>
+    <div class="tree-group-header"><div class="tree-group-title">分类树 (${roots.length})</div><button class="mini" onclick="openCreateCategory('macro', null, '', 'root')">新建一级分类</button></div>
+    ${showRootCreate?renderCreateForm("新建一级分类名称"):""}
+    ${roots.length?renderNodes(roots,0):`<div class="muted">暂无一级分类</div>`}
+  </div>`;
+  if(floatingTech.length){
+    html+=`<div style="margin-top:10px">
+      <div class="tree-group-header"><div class="tree-group-title">未挂接技术分类 (${floatingTech.length})</div></div>
+      ${renderNodes(floatingTech,0)}
+    </div>`;
+  }
+  box.innerHTML=html;
+}
+async function fetchJson(path, options) {
+  const url = /^https?:\/\//.test(path) ? path : BACKEND_URL + path;
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(await res.text());
+  return await res.json();
+}
+function renderBars(containerId,type,data,color){
+  const box=el(containerId), items=Object.entries(data||{});
+  if(!items.length){box.innerHTML=`<div class="muted">暂无数据</div>`;return;}
+  const maxVal=Math.max(...items.map(([,v])=>Number(v||0)),1);
+  box.innerHTML=items.map(([key,value])=>{
+    const pct=Math.round((Number(value||0)/maxVal)*100);
+    return `<div class="bar-line"><div>${escapeHtml(moduleLabel(type,key))}</div><div class="bar-box"><div class="bar" style="width:${pct}%;background:${color};"></div></div><div>${escapeHtml(value)}</div></div>`;
+  }).join("");
+}
+function renderArticles(items){
+  el("statArticles").textContent=items.length;
+  const box=el("articles");
+  if(!items.length){box.innerHTML=`<div class="muted">当前筛选没有数据。</div>`;return;}
+  box.innerHTML=items.map((row)=>`<article class="article">
+    <a class="title" href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.title||"(Untitled)")}</a>
+    <div class="meta"><span>${escapeHtml(row.source||"-")}</span><span>${escapeHtml(fmtDate(row.published_at))}</span><span>Impact: ${escapeHtml(row.impact_score??"-")}</span></div>
+    <div class="summary">${escapeHtml(row.summary||"该来源未提供摘要，建议点击"补全摘要/正文"后重试。")}</div>
+    ${row.content?`<div class="content-preview">${escapeHtml(clipText(row.content,520))}</div>`:""}
+    ${row.deepseek_analysis?`<div class="analysis">${escapeHtml(row.deepseek_analysis)}</div>`:""}
+  </article>`).join("");
+}
+function renderStocks(items){
+  const tbody=el("stocksBody"), tickerSelect=el("chartTicker");
+  if(!items.length){
+    tbody.innerHTML=`<tr><td colspan="5" class="muted">暂无股票快照</td></tr>`;
+    if(!tickerSelect.options.length) tickerSelect.innerHTML=defaultTickers.map((t)=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+    return;
+  }
+  tbody.innerHTML=items.map((s)=>{
+    const cls=(s.change_pct??0)>=0?"up":"down";
+    return `<tr><td>${escapeHtml(s.ticker)}</td><td>${s.price?Number(s.price).toFixed(2):"-"}</td><td class="${cls}">${fmtPct(s.change_pct)}</td><td>${s.volume?fmtNum(Math.round(s.volume)):"-"}</td><td>${escapeHtml(fmtDate(s.captured_at))}</td></tr>`;
+  }).join("");
+  tickerSelect.innerHTML=items.map((s)=>`<option value="${escapeHtml(s.ticker)}">${escapeHtml(s.ticker)}</option>`).join("");
+}
+function renderSourceList(items){
+  const box=el("sourceList");
+  if(!items.length){box.innerHTML=`<div class="muted">该模块暂时无来源网站。</div>`;return;}
+  box.innerHTML=items.map((row)=>`<div class="source-item">
+    <div class="source-title"><a href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.name)}</a>${sourceStatusBadge(row.verification_status)}</div>
+    <div class="source-meta">模块: ${escapeHtml(moduleLabel(row.module_type,row.module_key))} | 类型: ${escapeHtml(row.source_type)} | 状态: ${row.active?"启用":"停用"} | trusted_domain: ${row.trusted_domain?"yes":"no"} | reachable: ${row.reachable?"yes":"no"} | ${row.created_by_user?"自定义":"系统"}</div>
+    <div class="source-meta">${escapeHtml(row.verification_message||"")}</div>
+    <div class="source-actions">
+      <button class="mini" onclick="toggleSourceActive(${row.id}, ${row.active?"false":"true"})">${row.active?"停用":"启用"}</button>
+      <button class="mini" onclick="recheckSource(${row.id})">复核</button>
+      ${row.verification_status!=="verified"?`<button class="mini" onclick="approveSource(${row.id})">人工确认</button>`:""}
+      ${row.created_by_user?`<button class="mini" onclick="deleteSource(${row.id})">删除</button>`:""}
+    </div>
+  </div>`).join("");
+}
+function renderCompanyList(items){
+  const box=el("companyList");
+  if(!items.length){box.innerHTML=`<div class="muted">暂无企业白名单。</div>`;return;}
+  box.innerHTML=items.map((row)=>`<div class="company-item">
+    <div class="company-title"><strong>${escapeHtml(row.name)}</strong><span class="badge ${row.active?"badge-on":"badge-off"}">${row.active?"启用":"停用"}</span></div>
+    <div class="company-meta">domain: ${escapeHtml(row.domain)} | ${row.created_by_user?"自定义":"预置"}</div>
+    <div class="company-meta">${escapeHtml(row.note||"")}</div>
+    <div class="company-actions">
+      <button class="mini" onclick="toggleCompanyActive(${row.id}, ${row.active?"false":"true"})">${row.active?"停用":"启用"}</button>
+      ${row.created_by_user?`<button class="mini" onclick="deleteCompany(${row.id}, '${escapeHtml(row.name).replace(/'/g,"\\'")}')">删除</button>`:""}
+    </div>
+  </div>`).join("");
+}
+function drawLineChart(points,ticker){
+  const canvas=el("stockChart"), hint=el("chartHint"), ctx=canvas.getContext("2d"), w=canvas.width, h=canvas.height;
+  ctx.clearRect(0,0,w,h); ctx.fillStyle="#fcfeff"; ctx.fillRect(0,0,w,h);
+  if(!points.length){hint.textContent=`Ticker ${ticker} 暂无折线数据`;return;}
+  const prices=points.map((p)=>Number(p.price)).filter((x)=>Number.isFinite(x));
+  if(!prices.length){hint.textContent=`Ticker ${ticker} 数据无效`;return;}
+  const min=Math.min(...prices), max=Math.max(...prices), span=Math.max(max-min,1e-6);
+  const padL=36,padR=12,padT=14,padB=24,plotW=w-padL-padR,plotH=h-padT-padB;
+  ctx.strokeStyle="#d6e3ec"; ctx.lineWidth=1;
+  for(let i=0;i<=4;i+=1){const y=padT+(plotH*i/4); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(w-padR,y); ctx.stroke();}
+  ctx.strokeStyle="#176087"; ctx.lineWidth=2; ctx.beginPath();
+  points.forEach((p,idx)=>{const x=padL+(plotW*idx/Math.max(points.length-1,1)); const y=padT+((max-Number(p.price))/span)*plotH; if(idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);});
+  ctx.stroke();
+  const last=Number(points[points.length-1].price), first=Number(points[0].price), deltaPct=first?((last-first)/first*100):0;
+  hint.textContent=`${ticker} | ${points.length} 点 | 最低 ${min.toFixed(2)} / 最高 ${max.toFixed(2)} / 区间涨跌 ${deltaPct.toFixed(2)}%`;
+}
+async function loadServerConfig(){
+  try{
+    const cfg = await fetchJson("/api/config");
+    if(cfg.project_name){
+      document.title = cfg.project_name;
+      el("heroTitle").textContent = cfg.project_name;
+    }
+    if(cfg.timezone) el("cfgTz").textContent = cfg.timezone;
+    const dsOn = cfg.deepseek_enabled ? "ON" : "OFF";
+    const emailOn = cfg.email_enabled ? "ON" : "OFF";
+    el("cfgDeepSeek").textContent = dsOn;
+    el("cfgEmail").textContent = emailOn;
+    el("statDeepSeek").textContent = dsOn;
+    el("statEmail").textContent = emailOn;
+    if(Array.isArray(cfg.stock_tickers) && cfg.stock_tickers.length){
+      defaultTickers = cfg.stock_tickers;
+    }
+  }catch(e){
+    el("cfgDeepSeek").textContent = "?";
+    el("cfgEmail").textContent = "?";
+    el("statDeepSeek").textContent = "?";
+    el("statEmail").textContent = "?";
+  }
+}
+async function loadCategoryConfig(){const data=await fetchJson("/api/categories?include_inactive=true"); applyCategoryData(data);}
+async function toggleCategoryActive(categoryId,nextActive){
+  await fetchJson(`/api/categories/${categoryId}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({active:nextActive})});
+  setCategoryStatus(`分类 #${categoryId} 状态已更新`);
+  await Promise.all([loadCategoryConfig(),loadArticles(),loadStats(),loadSourceList()]);
+}
+async function renameCategory(categoryId,currentLabel){
+  const nextLabel=window.prompt("输入新的显示名称",currentLabel||"");
+  if(!nextLabel||nextLabel.trim()===""||nextLabel.trim()===currentLabel) return;
+  await fetchJson(`/api/categories/${categoryId}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({label:nextLabel.trim()})});
+  setCategoryStatus(`分类 #${categoryId} 名称已更新`);
+  await Promise.all([loadCategoryConfig(),loadArticles(),loadStats(),loadSourceList()]);
+}
+async function deleteCategory(categoryId){
+  const ok=window.confirm(`确认删除分类 #${categoryId}？会删除该分类下的所有子分类。`);
+  if(!ok) return;
+  try{
+    await fetchJson(`/api/categories/${categoryId}`,{method:"DELETE"});
+    setCategoryStatus(`分类 #${categoryId} 已删除`);
+    await Promise.all([loadCategoryConfig(),loadArticles(),loadStats(),loadSourceList()]);
+  }catch(error){
+    setCategoryStatus(`删除失败: ${String(error).slice(0,180)}`);
+  }
+}
+async function loadArticles(){
+  const params=new URLSearchParams({macro:el("macro").value,tech:el("tech").value,q:el("q").value,limit:"150"});
+  const dateFrom=el("dateFrom").value, dateTo=el("dateTo").value;
+  if(dateFrom&&dateTo&&dateFrom>dateTo){setStatus("日期区间无效: 开始日期不能晚于结束日期");return;}
+  if(dateFrom) params.set("date_from",dateFrom);
+  if(dateTo) params.set("date_to",dateTo);
+  if(!dateFrom&&!dateTo) params.set("days",el("days").value||"30");
+  const data=await fetchJson(`/api/articles?${params.toString()}`);
+  renderArticles(data.items||[]);
+  setStatus(`已加载 ${data.count||0} 条`);
+}
+async function loadStats(){
+  const data=await fetchJson("/api/stats?days=7");
+  renderBars("macroBars","macro",data.macro||{},"linear-gradient(90deg,#ff6b35,#f39f79)");
+  renderBars("techBars","tech",data.tech||{},"linear-gradient(90deg,#176087,#32a0c2)");
+}
+async function loadStocks(){const data=await fetchJson("/api/stocks"); renderStocks(data.items||[]); return data.items||[];}
+async function loadSourceList(){
+  const params=new URLSearchParams({include_inactive:"true"});
+  const selection=resolveSourceModuleSelection();
+  const data=await fetchJson(`/api/source-sites?${params.toString()}`);
+  let rows=data.items||[];
+  if(selection.module_key){
+    rows=rows.filter((row)=>{
+      if(row.module_type==="macro") return row.module_key===selection.module_key;
+      if(row.module_type==="tech") return techToMacroAnyKey[row.module_key]===selection.module_key;
+      return false;
+    });
+  }
+  renderSourceList(rows);
+  setSourceStatus(`当前资讯来源数: ${rows.length}`);
+}
+async function loadCompanyWhitelist(){
+  const data=await fetchJson("/api/company-whitelist?include_inactive=true");
+  renderCompanyList(data.items||[]);
+  setCompanyStatus(`企业白名单数: ${data.count||0} | trusted domains: ${(data.trusted_domains||[]).length}`);
+}
+async function addSource(){
+  const name=el("srcName").value.trim(), url=el("srcUrl").value.trim();
+  if(!name||!url){setSourceStatus("请填写来源名称和 URL");return;}
+  const selection=resolveSourceModuleSelection();
+  if(!selection.module_key){setSourceStatus("请先选择一级分类");return;}
+  let params={}; const raw=el("srcParams").value.trim();
+  if(raw){try{params=JSON.parse(raw);}catch{setSourceStatus("参数 JSON 格式错误");return;}}
+  await fetchJson("/api/source-sites",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,url,source_type:el("srcType").value,module_type:"macro",module_key:selection.module_key,params})});
+  el("srcName").value=""; el("srcUrl").value=""; el("srcParams").value="";
+  setSourceStatus("来源已新增并完成真实性校验");
+  await loadSourceList();
+}
+async function toggleSourceActive(sourceId,nextActive){
+  await fetchJson(`/api/source-sites/${sourceId}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({active:nextActive,reverify:false})});
+  setSourceStatus(`来源 #${sourceId} 已更新`);
+  await loadSourceList();
+}
+async function deleteSource(sourceId){
+  const ok=window.confirm(`确认删除来源 #${sourceId}？仅自定义来源可删除。`);
+  if(!ok) return;
+  try{
+    await fetchJson(`/api/source-sites/${sourceId}`,{method:"DELETE"});
+    setSourceStatus(`来源 #${sourceId} 已删除`);
+    await loadSourceList();
+  }catch(error){
+    setSourceStatus(`删除失败: ${String(error).slice(0,180)}`);
+  }
+}
+async function recheckSource(sourceId){await fetchJson(`/api/source-sites/${sourceId}/verify`,{method:"POST"}); setSourceStatus(`来源 #${sourceId} 已复核`); await loadSourceList();}
+async function approveSource(sourceId){await fetchJson(`/api/source-sites/${sourceId}/approve`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({note:"Approved from dashboard UI"})}); setSourceStatus(`来源 #${sourceId} 已人工确认`); await loadSourceList();}
+async function addCompany(){
+  const name=el("companyName").value.trim(), domain=el("companyDomain").value.trim(), note=el("companyNote").value.trim();
+  if(!name||!domain){setCompanyStatus("请填写企业名称和官网域名");return;}
+  await fetchJson("/api/company-whitelist",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,domain,active:true,note})});
+  el("companyName").value=""; el("companyDomain").value=""; el("companyNote").value="";
+  setCompanyStatus("企业白名单已新增并同步到来源库");
+  await Promise.all([loadCompanyWhitelist(),loadSourceList()]);
+}
+async function toggleCompanyActive(companyId,nextActive){
+  await fetchJson(`/api/company-whitelist/${companyId}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({active:nextActive})});
+  setCompanyStatus(`企业 #${companyId} 状态已更新并同步来源`);
+  await Promise.all([loadCompanyWhitelist(),loadSourceList()]);
+}
+async function deleteCompany(companyId, companyName){
+  const label = companyName ? `${companyName} (#${companyId})` : `#${companyId}`;
+  const ok=window.confirm(`确认删除企业 ${label}？仅自定义企业可删除。`);
+  if(!ok) return;
+  try{
+    await fetchJson(`/api/company-whitelist/${companyId}`,{method:"DELETE"});
+    setCompanyStatus(`企业 ${label} 已删除并同步来源`);
+    await Promise.all([loadCompanyWhitelist(),loadSourceList()]);
+  }catch(error){
+    setCompanyStatus(`删除失败: ${String(error).slice(0,180)}`);
+  }
+}
+async function syncCompanySources(){
+  const data=await fetchJson("/api/company-whitelist/sync",{method:"POST"});
+  setCompanyStatus(`同步完成: created=${data.result.created}, activated=${data.result.activated}, deactivated=${data.result.deactivated}`);
+  await Promise.all([loadCompanyWhitelist(),loadSourceList()]);
+}
+async function loadChart(){
+  const ticker=el("chartTicker").value, points=Number(el("chartPoints").value||240);
+  if(!ticker) return;
+  const data=await fetchJson(`/api/stocks/${ticker}/series?points=${points}`);
+  drawLineChart(data.items||[],ticker);
+}
+async function runTask(btnId,url,successMsg){
+  const btn=el(btnId), oldText=btn.textContent;
+  btn.disabled=true; btn.textContent="执行中...";
+  try{
+    await fetchJson(url,{method:"POST"});
+    setStatus(successMsg);
+    await Promise.all([loadArticles(),loadStats(),loadStocks()]);
+    await loadChart();
+  }catch(error){setStatus(`执行失败: ${String(error).slice(0,180)}`);}
+  finally{btn.disabled=false; btn.textContent=oldText;}
+}
+async function runIngestTask(){
+  const btn=el("btnIngest"), oldText=btn.textContent;
+  btn.disabled=true; btn.textContent="抓取中...";
+  try{
+    const data=await fetchJson("/api/tasks/ingest",{method:"POST"});
+    const r=data.result||{};
+    setStatus(`抓取完成: fetched=${r.fetched||0}, inserted=${r.inserted||0}, skipped=${r.skipped||0}, errors=${r.errors||0}`);
+    await Promise.all([loadArticles(),loadStats(),loadStocks()]);
+    await loadChart();
+  }catch(error){setStatus(`抓取失败: ${String(error).slice(0,180)}`);}
+  finally{btn.disabled=false; btn.textContent=oldText;}
+}
+async function enrichContentTask(){
+  const btn=el("btnEnrichContent"), oldText=btn.textContent;
+  btn.disabled=true; btn.textContent="补全中...";
+  try{
+    const data=await fetchJson("/api/tasks/enrich-content?days=60&limit=600",{method:"POST"});
+    const r=data.result||{};
+    setStatus(`内容补全完成: scanned=${r.scanned||0}, updated=${r.updated||0}, errors=${r.errors||0}`);
+    await loadArticles();
+  }catch(error){setStatus(`内容补全失败: ${String(error).slice(0,180)}`);}
+  finally{btn.disabled=false; btn.textContent=oldText;}
+}
+async function backfillStockLines(){
+  const btn=el("btnBackfillStocks"), oldText=btn.textContent;
+  btn.disabled=true; btn.textContent="抓取中...";
+  try{
+    const data=await fetchJson("/api/tasks/stocks/backfill?period=5d&interval=15m&max_rows_per_ticker=500",{method:"POST"});
+    setStatus(`折线数据抓取完成: inserted=${data.result.inserted}, errors=${data.result.errors}`);
+    await Promise.all([loadStocks(),loadChart()]);
+  }catch(error){setStatus(`折线数据抓取失败: ${String(error).slice(0,180)}`);}
+  finally{btn.disabled=false; btn.textContent=oldText;}
+}
+const SIDEBAR_FILTER_PAGE_INDEX = 0;
+const MAIN_LATEST_PAGE_INDEX = 1;
+function pagerStep(pages,cardSelector,minWidth){
+  const card=pages.querySelector(cardSelector);
+  if(!card) return minWidth;
+  return Math.max(card.getBoundingClientRect().width,minWidth);
+}
+function pagerIndex(pages,cardSelector,minWidth){
+  const step=pagerStep(pages,cardSelector,minWidth);
+  if(step<=0) return 0;
+  return Math.max(0,Math.round(pages.scrollLeft/step));
+}
+function pagerScrollToIndex(pages,cardSelector,minWidth,index){
+  const step=pagerStep(pages,cardSelector,minWidth);
+  const left=Math.max(0,index)*step;
+  if(Math.abs(pages.scrollLeft-left)<1) return;
+  pages.scrollTo({left,behavior:"smooth"});
+}
+function syncSidebarToFilterWhenMainLatest(){
+  const mainPages=el("mainPages");
+  const sidePages=el("sidebarPages");
+  if(!mainPages||!sidePages) return;
+  const mainIndex=pagerIndex(mainPages,".main-card",420);
+  if(mainIndex!==MAIN_LATEST_PAGE_INDEX) return;
+  const sideIndex=pagerIndex(sidePages,".side-card",320);
+  if(sideIndex!==SIDEBAR_FILTER_PAGE_INDEX){
+    pagerScrollToIndex(sidePages,".side-card",320,SIDEBAR_FILTER_PAGE_INDEX);
+  }
+}
+function setupSidebarPager(){
+  const pages=el("sidebarPages");
+  const prev=el("sidePrev");
+  const next=el("sideNext");
+  if(!pages||!prev||!next) return;
+  const step=()=>{
+    const card=pages.querySelector(".side-card");
+    if(!card) return 420;
+    return Math.max(card.getBoundingClientRect().width,320);
+  };
+  prev.addEventListener("click",()=>pages.scrollBy({left:-step(),behavior:"smooth"}));
+  next.addEventListener("click",()=>pages.scrollBy({left:step(),behavior:"smooth"}));
+}
+function setupMainPager(){
+  const pages=el("mainPages");
+  const prev=el("mainPrev");
+  const next=el("mainNext");
+  if(!pages||!prev||!next) return;
+  const step=()=>{
+    const card=pages.querySelector(".main-card");
+    if(!card) return 640;
+    return Math.max(card.getBoundingClientRect().width,420);
+  };
+  prev.addEventListener("click",()=>pages.scrollBy({left:-step(),behavior:"smooth"}));
+  next.addEventListener("click",()=>pages.scrollBy({left:step(),behavior:"smooth"}));
+  let scrollRaf=0;
+  pages.addEventListener("scroll",()=>{
+    if(scrollRaf) return;
+    scrollRaf=requestAnimationFrame(()=>{
+      scrollRaf=0;
+      syncSidebarToFilterWhenMainLatest();
+    });
+  });
+}
+
+window.recheckSource=recheckSource;
+window.approveSource=approveSource;
+window.toggleSourceActive=toggleSourceActive;
+window.deleteSource=deleteSource;
+window.toggleCompanyActive=toggleCompanyActive;
+window.deleteCompany=deleteCompany;
+window.toggleCategoryActive=toggleCategoryActive;
+window.renameCategory=renameCategory;
+window.deleteCategory=deleteCategory;
+window.toggleCategoryNodeFold=toggleCategoryNodeFold;
+window.openCreateCategory=openCreateCategory;
+window.submitCreateCategory=submitCreateCategory;
+window.cancelCreateCategory=cancelCreateCategory;
+
+el("btnFilter").addEventListener("click",()=>loadArticles().catch((e)=>setStatus(String(e))));
+el("macro").addEventListener("change",()=>{
+  refreshTechFilterOptions(el("macro").value,el("tech").value);
+  loadArticles().catch((e)=>setStatus(String(e)));
+});
+el("tech").addEventListener("change",()=>loadArticles().catch((e)=>setStatus(String(e))));
+el("days").addEventListener("change",()=>loadArticles().catch((e)=>setStatus(String(e))));
+el("dateFrom").addEventListener("change",()=>loadArticles().catch((e)=>setStatus(String(e))));
+el("dateTo").addEventListener("change",()=>loadArticles().catch((e)=>setStatus(String(e))));
+el("btnClearDate").addEventListener("click",()=>{el("dateFrom").value="";el("dateTo").value="";loadArticles().catch((e)=>setStatus(String(e)));});
+el("q").addEventListener("keydown",(event)=>{if(event.key==="Enter") loadArticles().catch((e)=>setStatus(String(e)));});
+el("btnIngest").addEventListener("click",()=>runIngestTask());
+el("btnEnrichContent").addEventListener("click",()=>enrichContentTask());
+el("btnStocks").addEventListener("click",()=>runTask("btnStocks","/api/tasks/stocks","股价快照刷新完成"));
+el("btnWeekly").addEventListener("click",()=>runTask("btnWeekly","/api/tasks/send-weekly","晨报发送完成"));
+el("btnBackfillStocks").addEventListener("click",()=>backfillStockLines());
+el("btnLoadChart").addEventListener("click",()=>loadChart().catch((e)=>setStatus(String(e))));
+el("btnAddSource").addEventListener("click",()=>addSource().catch((e)=>setSourceStatus(String(e))));
+el("btnAddCompany").addEventListener("click",()=>addCompany().catch((e)=>setCompanyStatus(String(e))));
+el("btnSyncCompanies").addEventListener("click",()=>syncCompanySources().catch((e)=>setCompanyStatus(String(e))));
+el("srcMacro").addEventListener("change",()=>loadSourceList().catch((e)=>setSourceStatus(String(e))));
+el("chartTicker").addEventListener("change",()=>loadChart().catch((e)=>setStatus(String(e))));
+
+async function initialize(){
+  try{
+    setupSidebarPager();
+    setupMainPager();
+    await loadServerConfig();
+    await loadCategoryConfig();
+    await Promise.all([loadArticles(),loadStats(),loadStocks(),loadCompanyWhitelist()]);
+    if(!el("chartTicker").options.length) el("chartTicker").innerHTML=defaultTickers.map((t)=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+    await loadSourceList();
+    await loadChart();
+    setStatus("系统就绪");
+    setSourceStatus("来源管理就绪");
+    setCategoryStatus("分类树已就绪，可新增父分类与子分类");
+  }catch(error){setStatus(`加载失败: ${String(error).slice(0,180)}`);}
+}
+initialize();
+</script>
+</body>
+</html>

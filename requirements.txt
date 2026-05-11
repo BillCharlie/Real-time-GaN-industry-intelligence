@@ -11,3 +11,4 @@ pydantic==2.11.7
 pydantic-settings==2.10.1
 yfinance==0.2.66
 tenacity==9.1.2
+python-multipart==0.0.20

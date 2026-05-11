@@ -508,7 +508,7 @@ function renderArticles(items){
   box.innerHTML=items.map((row)=>`<article class="article">
     <a class="title" href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.title||"(Untitled)")}</a>
     <div class="meta"><span>${escapeHtml(row.source||"-")}</span><span>${escapeHtml(fmtDate(row.published_at))}</span><span>Impact: ${escapeHtml(row.impact_score??"-")}</span></div>
-    <div class="summary">${escapeHtml(row.summary||"该来源未提供摘要，建议点击"补全摘要/正文"后重试。")}</div>
+    <div class="summary">${escapeHtml(row.summary||'该来源未提供摘要，建议点击"补全摘要/正文"后重试。')}</div>
     ${row.content?`<div class="content-preview">${escapeHtml(clipText(row.content,520))}</div>`:""}
     ${row.deepseek_analysis?`<div class="analysis">${escapeHtml(row.deepseek_analysis)}</div>`:""}
   </article>`).join("");

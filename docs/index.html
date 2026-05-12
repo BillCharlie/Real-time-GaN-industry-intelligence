@@ -58,6 +58,14 @@
     .source-meta,.company-meta,.category-meta{margin-top:4px;font-size:12px;color:var(--muted)}.source-actions,.company-actions,.category-actions{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
     .chart-wrap{margin-top:8px;border:1px solid #d9e6ee;border-radius:10px;padding:8px;background:#fff}canvas{width:100%;height:auto;display:block}.stock-table{width:100%;border-collapse:collapse;font-size:12px}.stock-table th,.stock-table td{border-bottom:1px solid #e2eaf0;padding:6px;text-align:left}.up{color:#0f766e}.down{color:#b91c1c}
     @media(max-width:1120px){.layout{grid-template-columns:1fr}.hero{flex-direction:column;align-items:flex-start}.form-row-inline,.stats-grid{grid-template-columns:1fr}.side-card,.main-card{flex:0 0 100%}}
+    .filter-tree-nav{display:flex;flex-direction:column;gap:2px}
+    .ftn-node{padding:5px 8px;border-radius:7px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:4px;user-select:none;transition:background .12s}
+    .ftn-node:hover{background:#edf5fb}
+    .ftn-node.active{background:var(--pri);color:#fff;font-weight:700}
+    .ftn-node .ftn-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ftn-arrow{font-size:10px;opacity:.55;width:12px;text-align:center;flex-shrink:0;cursor:pointer}
+    .ftn-children{margin-left:16px;border-left:2px solid #dbe6ee;padding-left:8px;display:flex;flex-direction:column;gap:2px;margin-top:2px}
+    .ftn-children.collapsed{display:none}
   </style>
 </head>
 <body>
@@ -101,8 +109,13 @@
         <div class="sidebar-pages" id="sidebarPages">
       <div class="panel side-card">
         <h2>情报筛选</h2>
-        <div class="form-row"><label>一级分类</label><select id="macro"><option value="">全部</option></select></div>
-        <div class="form-row"><label>技术分类</label><select id="tech"><option value="">全部</option></select></div>
+        <div class="form-row" style="margin-bottom:6px">
+          <label>分类目录</label>
+          <div id="filterTreeNav" style="margin-top:6px;"></div>
+        </div>
+        <!-- hidden selects kept for JS compat; values synced from tree clicks -->
+        <select id="macro" style="display:none"><option value="">全部</option></select>
+        <select id="tech" style="display:none"><option value="">全部</option></select>
         <div class="form-row"><label>关键词</label><input id="q" placeholder="GaN HEMT / fast charger / data center"></div>
         <div class="form-row"><label>回看天数</label><input id="days" type="number" min="1" max="180" value="90"></div>
         <div class="form-row-inline">
@@ -201,6 +214,8 @@ let techToMacroAnyKey = {};
 let categoryById = {};
 let categoryCreateContext = { groupType: null, parentId: null, parentLabel: "", mode: "root" };
 const collapsedTreeNodes = new Set();
+let activeFilterNode = {key:"", groupType:""};
+const collapsedFilterNodes = new Set();
 
 const el = (id) => document.getElementById(id);
 const statusEl = el("status");
@@ -372,6 +387,7 @@ function applyCategoryData(data){
 
   fillFilterSelects();
   fillSourceCategorySelects();
+  renderFilterTree();
   renderCategoryTree();
 }
 function openCreateCategory(groupType,parentId,parentLabel,mode="child"){
@@ -483,6 +499,50 @@ function renderCategoryTree(){
     </div>`;
   }
   box.innerHTML=html;
+}
+function renderFilterTree(){
+  const box=el("filterTreeNav");
+  if(!box) return;
+  function cls(key,groupType){
+    const isAll=!key&&!groupType;
+    const isActive=isAll?(!activeFilterNode.key&&!activeFilterNode.groupType):(key===activeFilterNode.key&&groupType===activeFilterNode.groupType);
+    return "ftn-node"+(isActive?" active":"");
+  }
+  let html=`<div class="filter-tree-nav">`;
+  html+=`<div class="${cls("","")}" onclick="setFilterNode('','')"><span class="ftn-label">全部</span></div>`;
+  for(const macroKey of macroKeys){
+    const macroLabel=displayCategoryName("macro",macroKey,{path:false});
+    const techList=macroToTechKeys[macroKey]||[];
+    const hasTech=techList.length>0;
+    const token=`macro:${macroKey}`;
+    const isCollapsed=hasTech&&collapsedFilterNodes.has(token);
+    html+=`<div class="${cls(macroKey,"macro")}" onclick="setFilterNode('${macroKey}','macro')">`;
+    if(hasTech) html+=`<span class="ftn-arrow" onclick="event.stopPropagation();toggleFilterFold('${token}')">${isCollapsed?"▶":"▼"}</span>`;
+    html+=`<span class="ftn-label">${escapeHtml(macroLabel)}</span></div>`;
+    if(hasTech){
+      html+=`<div class="ftn-children${isCollapsed?" collapsed":""}">`;
+      for(const techKey of techList){
+        const techLabel=displayCategoryName("tech",techKey,{path:false});
+        html+=`<div class="${cls(techKey,"tech")}" onclick="setFilterNode('${techKey}','tech')"><span class="ftn-label">${escapeHtml(techLabel)}</span></div>`;
+      }
+      html+=`</div>`;
+    }
+  }
+  html+=`</div>`;
+  box.innerHTML=html;
+}
+function setFilterNode(key,groupType){
+  activeFilterNode={key,groupType};
+  if(groupType==="macro"){el("macro").value=key;el("tech").value="";}
+  else if(groupType==="tech"){el("macro").value=techToMacroKey[key]||"";el("tech").value=key;}
+  else{el("macro").value="";el("tech").value="";}
+  renderFilterTree();
+  loadArticles().catch(e=>setStatus(String(e)));
+}
+function toggleFilterFold(token){
+  if(collapsedFilterNodes.has(token)) collapsedFilterNodes.delete(token);
+  else collapsedFilterNodes.add(token);
+  renderFilterTree();
 }
 async function fetchJson(path, options) {
   const url = /^https?:\/\//.test(path) ? path : BACKEND_URL + path;
@@ -847,6 +907,8 @@ function setupMainPager(){
   });
 }
 
+window.setFilterNode=setFilterNode;
+window.toggleFilterFold=toggleFilterFold;
 window.recheckSource=recheckSource;
 window.approveSource=approveSource;
 window.toggleSourceActive=toggleSourceActive;

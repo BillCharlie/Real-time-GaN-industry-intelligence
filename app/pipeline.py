@@ -143,7 +143,12 @@ def run_ingestion(session: Session, settings: Settings, deepseek: DeepSeekClient
             if deepseek.enabled:
                 try:
                     ds_analysis = deepseek.analyze_article(
-                        title=row.title, summary=None, macro_hint=macro, tech_hint=tech
+                        title=row.title,
+                        summary=summary,
+                        macro_hint=macro,
+                        tech_hint=tech,
+                        macro_keys=sorted(macro_keys),
+                        tech_keys=sorted(tech_keys),
                     )
                 except Exception:
                     logger.exception("DeepSeek analysis failed for: %s", row.url)

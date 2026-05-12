@@ -30,7 +30,8 @@ class DeepSeekClient:
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=8), reraise=True)
     def analyze_article(
-        self, *, title: str, summary: str | None, macro_hint: str, tech_hint: str
+        self, *, title: str, summary: str | None, macro_hint: str, tech_hint: str,
+        macro_keys: list | None = None, tech_keys: list | None = None,
     ) -> Optional[AnalysisResult]:
         if not self.enabled:
             return None
@@ -41,13 +42,20 @@ class DeepSeekClient:
             "hints": {
                 "macro_category": macro_hint,
                 "tech_category": tech_hint,
-                "macro_choices": ["industry", "stock", "academic"],
-                "tech_choices": ["low_power", "high_power", "high_frequency", "materials", "packaging", "other"],
+                "macro_choices": macro_keys or ["industry", "stock", "academic"],
+                "tech_choices": tech_keys or [
+                    "industry_low_power", "industry_high_power", "industry_high_frequency",
+                    "industry_materials", "industry_packaging", "industry_other",
+                    "academic_low_power", "academic_high_power", "academic_high_frequency",
+                    "academic_materials", "academic_packaging", "academic_other",
+                ],
             },
             "task": (
                 "Return strict JSON with keys: macro_category, tech_category, "
-                "sentiment_score(-1~1), impact_score(0~100), analysis_text(<=120 words). "
-                "Classify primarily from the title. Use summary only as auxiliary context."
+                "sentiment_score(-1~1), impact_score(0~100), analysis_text(<=120 words, Chinese). "
+                "macro_category MUST be exactly one value from macro_choices. "
+                "tech_category MUST be exactly one value from tech_choices (most specific match). "
+                "Classify from title first; use summary as context."
             ),
         }
         data = {

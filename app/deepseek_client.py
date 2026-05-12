@@ -76,7 +76,8 @@ class DeepSeekClient:
         )
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=8), reraise=True)
-    def summarize_weekly(self, report_payload: Dict[str, Any]) -> Optional[str]:
+    def summarize_daily(self, report_payload: Dict[str, Any]) -> Optional[str]:
+        """Daily briefing — concise 100-150 words, Chinese."""
         if not self.enabled:
             return None
         data = {
@@ -85,8 +86,54 @@ class DeepSeekClient:
                 {
                     "role": "system",
                     "content": (
-                        "You are an expert in power semiconductors. "
-                        "Write concise weekly briefing in Chinese, 180-250 words."
+                        "你是氮化镓半导体行业分析师。"
+                        "请根据提供的昨日资讯，用中文写一段简洁的日报摘要，100-150字，"
+                        "重点提炼最重要的1-3条动态，并简评其产业意义。"
+                    ),
+                },
+                {"role": "user", "content": json.dumps(report_payload, ensure_ascii=False)},
+            ],
+            "temperature": 0.4,
+        }
+        return self._chat_completion(data).strip()
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=8), reraise=True)
+    def summarize_weekly(self, report_payload: Dict[str, Any]) -> Optional[str]:
+        """Weekly summary — 200-280 words, Chinese."""
+        if not self.enabled:
+            return None
+        data = {
+            "model": self.settings.deepseek_model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "你是氮化镓半导体行业分析师。"
+                        "请根据提供的本周资讯，用中文写一段周报摘要，200-280字，"
+                        "涵盖本周主要技术、产业与市场动态，并指出值得持续关注的趋势。"
+                    ),
+                },
+                {"role": "user", "content": json.dumps(report_payload, ensure_ascii=False)},
+            ],
+            "temperature": 0.4,
+        }
+        return self._chat_completion(data).strip()
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=8), reraise=True)
+    def summarize_monthly(self, report_payload: Dict[str, Any]) -> Optional[str]:
+        """Monthly review with trend comparison — 350-450 words, Chinese."""
+        if not self.enabled:
+            return None
+        data = {
+            "model": self.settings.deepseek_model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "你是氮化镓半导体行业资深分析师。"
+                        "请根据提供的本月与上月资讯数据，用中文写一份月度报告，350-450字，"
+                        "包含：① 本月整体动态总结 ② 与上月相比的变化趋势（数量、类别分布） "
+                        "③ 重点技术/产业事件点评 ④ 下月值得关注的方向。"
                     ),
                 },
                 {"role": "user", "content": json.dumps(report_payload, ensure_ascii=False)},

@@ -444,6 +444,25 @@ def weekly_articles(session: Session, *, days: int = 7) -> List[Article]:
     )
 
 
+def articles_in_window(session: Session, *, days_ago_start: int, days_ago_end: int = 0) -> List[Article]:
+    """Return articles published between (now - days_ago_start) and (now - days_ago_end)."""
+    now = datetime.now(timezone.utc)
+    since = now - timedelta(days=days_ago_start)
+    until = now - timedelta(days=days_ago_end)
+    return list(
+        session.scalars(
+            select(Article)
+            .where(
+                Article.published_at.is_not(None),
+                Article.published_at >= since,
+                Article.published_at < until,
+            )
+            .order_by(desc(Article.impact_score), desc(Article.published_at))
+            .limit(500)
+        )
+    )
+
+
 def _fetch_one_ticker(ticker: str) -> Optional[Dict[str, float | None]]:
     hist = yf.Ticker(ticker).history(period="5d", interval="1d", auto_adjust=False)
     if hist is None or hist.empty:

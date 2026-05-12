@@ -14,9 +14,8 @@ class Settings(BaseSettings):
 
     ingest_interval_hours: int = 2        # auto-fetch every N hours
     stock_interval_minutes: int = 30
-    weekly_cron_day_of_week: str = "*"
-    weekly_cron_hour: int = 8
-    weekly_cron_minute: int = 0
+    daily_report_hour: int = 8            # daily report at HH:00 (Asia/Taipei)
+    daily_report_minute: int = 0          # weekly = +5 min, monthly = +10 min
 
     max_articles_per_source: int = 20
 

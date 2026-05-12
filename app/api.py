@@ -35,7 +35,13 @@ from .pipeline import (
     refresh_stock_snapshots,
     run_ingestion,
 )
-from .reporter import build_weekly_report, send_weekly_email
+from .reporter import (
+    build_daily_report,
+    build_monthly_report,
+    build_weekly_report,
+    send_report_email,
+    send_weekly_email,
+)
 from .scheduler import RuntimeScheduler
 from .source_registry import (
     active_company_domains,
@@ -553,13 +559,33 @@ async def api_upload_db(token: str = Query(...), file: UploadFile = File(...)):
     return {"ok": True, "size": os.path.getsize(db_path)}
 
 
+@app.post("/api/tasks/send-daily")
+def api_send_daily():
+    if not settings.email_enabled:
+        raise HTTPException(status_code=400, detail="Email is not configured.")
+    with SessionLocal() as session:
+        subject, text_body, html_body, stats = build_daily_report(session, settings, deepseek_client)
+        send_report_email(session, settings, "daily", subject, text_body, html_body)
+    return {"ok": True, "subject": subject, "stats": stats}
+
+
 @app.post("/api/tasks/send-weekly")
 def api_send_weekly():
     if not settings.email_enabled:
         raise HTTPException(status_code=400, detail="Email is not configured.")
     with SessionLocal() as session:
         subject, text_body, html_body, stats = build_weekly_report(session, settings, deepseek_client)
-        send_weekly_email(session, settings, subject, text_body, html_body)
+        send_report_email(session, settings, "weekly", subject, text_body, html_body)
+    return {"ok": True, "subject": subject, "stats": stats}
+
+
+@app.post("/api/tasks/send-monthly")
+def api_send_monthly():
+    if not settings.email_enabled:
+        raise HTTPException(status_code=400, detail="Email is not configured.")
+    with SessionLocal() as session:
+        subject, text_body, html_body, stats = build_monthly_report(session, settings, deepseek_client)
+        send_report_email(session, settings, "monthly", subject, text_body, html_body)
     return {"ok": True, "subject": subject, "stats": stats}
 
 

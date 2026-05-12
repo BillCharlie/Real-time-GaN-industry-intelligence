@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import html
+import logging
+import os
 import smtplib
 from collections import Counter, defaultdict
 from datetime import datetime
@@ -14,6 +16,8 @@ from .config import Settings
 from .deepseek_client import DeepSeekClient
 from .models import Article, ReportLog
 from .pipeline import weekly_articles
+
+logger = logging.getLogger(__name__)
 
 
 def build_weekly_report(
@@ -59,6 +63,8 @@ def send_weekly_email(session: Session, settings: Settings, subject: str, text_b
 
     sender = settings.gmail_user
     recipient = settings.gmail_to
+    recipients = [r.strip() for r in recipient.split(",") if r.strip()]
+
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = f"{settings.gmail_from_display_name} <{sender}>"
@@ -67,12 +73,20 @@ def send_weekly_email(session: Session, settings: Settings, subject: str, text_b
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(settings.gmail_smtp_host, settings.gmail_smtp_port) as smtp:
-            smtp.starttls()
-            smtp.login(settings.gmail_user, settings.gmail_app_password)
-            smtp.sendmail(sender, [recipient], msg.as_string())
-        session.add(ReportLog(report_type="weekly", recipient=recipient, subject=subject, status="sent"))
+        # ── prefer Resend HTTP API (works on Railway / cloud) ──────────────
+        resend_key = os.getenv("RESEND_API_KEY", "").strip()
+        if resend_key:
+            ok = _send_via_resend(resend_key, recipients, subject, html_body,
+                                  settings.gmail_from_display_name)
+        else:
+            # ── fallback: Gmail SMTP (local dev only) ──────────────────────
+            ok = _smtp_send(sender, settings.gmail_app_password, recipients, msg)
+
+        status = "sent" if ok else "failed"
+        session.add(ReportLog(report_type="weekly", recipient=recipient, subject=subject, status=status))
         session.commit()
+        if not ok:
+            raise RuntimeError("Email sending failed — check logs for details")
         return True
     except Exception as exc:
         session.add(
@@ -86,6 +100,68 @@ def send_weekly_email(session: Session, settings: Settings, subject: str, text_b
         )
         session.commit()
         raise
+
+
+def _send_via_resend(api_key: str, recipients: list[str], subject: str,
+                     html_body: str, from_name: str = "GaN情报助手") -> bool:
+    """Send via Resend HTTP API (port 443 — works on Railway/cloud).
+    Free tier: 3000 emails/month, 100/day.
+    Sends FROM onboarding@resend.dev unless a custom verified domain is configured.
+    """
+    import requests as _req
+
+    payload: dict = {
+        "from": f"{from_name} <onboarding@resend.dev>",
+        "to": recipients,
+        "subject": subject,
+        "html": html_body,
+    }
+
+    try:
+        resp = _req.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json=payload,
+            timeout=30,
+        )
+        if resp.status_code in (200, 201):
+            logger.info("Resend API: email sent → %s", recipients)
+            return True
+        logger.error("Resend API %d: %s", resp.status_code, resp.text)
+        return False
+    except Exception as e:
+        logger.error("Resend API request failed: %s", e)
+        return False
+
+
+def _smtp_send(sender: str, password: str, recipients: list[str], msg) -> bool:
+    """Try Gmail SMTP — port 465 (SSL) first, then 587 (STARTTLS).
+    NOTE: Most cloud hosts (including Railway) block SMTP ports.
+    This is kept as a fallback for local development only.
+    """
+    raw = msg.as_bytes()
+
+    for port, use_ssl in [(465, True), (587, False)]:
+        try:
+            if use_ssl:
+                with smtplib.SMTP_SSL("smtp.gmail.com", port, timeout=30) as s:
+                    s.login(sender, password)
+                    s.sendmail(sender, recipients, raw)
+            else:
+                with smtplib.SMTP("smtp.gmail.com", port, timeout=30) as s:
+                    s.ehlo(); s.starttls(); s.ehlo()
+                    s.login(sender, password)
+                    s.sendmail(sender, recipients, raw)
+            logger.info("Email sent via SMTP port %d to %s", port, recipients)
+            return True
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error("Gmail auth failed (port %d): %s", port, e)
+            return False
+        except Exception as e:
+            logger.warning("SMTP port %d failed: %s", port, e)
+
+    logger.error("All SMTP ports blocked — set RESEND_API_KEY on cloud hosts")
+    return False
 
 
 def _build_text_body(

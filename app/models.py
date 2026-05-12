@@ -48,6 +48,20 @@ class StockSnapshot(Base):
     captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
 
 
+class IngestLog(Base):
+    __tablename__ = "ingest_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    fetched: Mapped[int] = mapped_column(Integer, default=0)
+    inserted: Mapped[int] = mapped_column(Integer, default=0)
+    skipped: Mapped[int] = mapped_column(Integer, default=0)
+    errors: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(20), default="ok", index=True)  # ok / error
+    error_message: Mapped[str | None] = mapped_column(Text)
+
+
 class ReportLog(Base):
     __tablename__ = "report_logs"
 

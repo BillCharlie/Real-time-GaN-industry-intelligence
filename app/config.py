@@ -12,8 +12,7 @@ class Settings(BaseSettings):
     db_url: str = "sqlite:///./data/ganiq.db"
     timezone: str = "Asia/Taipei"
 
-    ingest_cron_hour: int = 5
-    ingest_cron_minute: int = 0
+    ingest_interval_hours: int = 2        # auto-fetch every N hours
     stock_interval_minutes: int = 30
     weekly_cron_day_of_week: str = "*"
     weekly_cron_hour: int = 8

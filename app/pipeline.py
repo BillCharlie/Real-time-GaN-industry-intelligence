@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from .category_registry import get_active_category_keys
 from .config import Settings
 from .deepseek_client import DeepSeekClient
-from .models import Article, StockSnapshot
+from .models import Article, IngestLog, StockSnapshot
 from .source_registry import sources_for_ingestion
 from .sources import RawArticle, fetch_article_page_preview, fetch_from_source, get_default_sources
 from .taxonomy import classify_text
@@ -187,6 +187,22 @@ def run_ingestion(session: Session, settings: Settings, deepseek: DeepSeekClient
                 result.skipped += 1
 
     session.commit()
+
+    # ── record ingestion log ──────────────────────────────────────────────────
+    try:
+        log = IngestLog(
+            finished_at=datetime.now(timezone.utc),
+            fetched=result.fetched,
+            inserted=result.inserted,
+            skipped=result.skipped,
+            errors=result.errors,
+            status="ok" if result.errors == 0 else "error",
+        )
+        session.add(log)
+        session.commit()
+    except Exception as exc:
+        logger.warning("Failed to write IngestLog: %s", exc)
+
     return result
 
 

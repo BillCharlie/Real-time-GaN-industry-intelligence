@@ -24,7 +24,7 @@ from .category_registry import (
 from .config import get_settings
 from .db import SessionLocal, engine, get_db_session
 from .deepseek_client import DeepSeekClient
-from .models import Article, Base
+from .models import Article, Base, IngestLog
 from .pipeline import (
     backfill_stock_snapshots,
     enrich_existing_article_content,
@@ -273,7 +273,23 @@ def api_update_article_classification(
 
 @app.get("/api/stats")
 def api_stats(days: int = Query(default=7, ge=1, le=90), session: Session = Depends(get_db_session)):
-    return {"days": days, "updated_at": datetime.utcnow().isoformat() + "Z", **query_category_stats(session, days=days)}
+    last_log = session.query(IngestLog).order_by(IngestLog.started_at.desc()).first()
+    last_ingest = None
+    if last_log:
+        last_ingest = {
+            "started_at": last_log.started_at.isoformat() if last_log.started_at else None,
+            "finished_at": last_log.finished_at.isoformat() if last_log.finished_at else None,
+            "inserted": last_log.inserted,
+            "fetched": last_log.fetched,
+            "status": last_log.status,
+        }
+    return {
+        "days": days,
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+        "last_ingest": last_ingest,
+        "ingest_interval_hours": settings.ingest_interval_hours,
+        **query_category_stats(session, days=days),
+    }
 
 
 @app.get("/api/stocks")

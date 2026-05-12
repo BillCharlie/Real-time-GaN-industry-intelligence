@@ -22,9 +22,8 @@ class RuntimeScheduler:
     def start(self) -> None:
         self.scheduler.add_job(
             self._ingest_job,
-            trigger="cron",
-            hour=self.settings.ingest_cron_hour,
-            minute=self.settings.ingest_cron_minute,
+            trigger="interval",
+            hours=self.settings.ingest_interval_hours,
             id="ingest_job",
             max_instances=1,
             coalesce=True,
@@ -49,9 +48,10 @@ class RuntimeScheduler:
         )
         self.scheduler.start()
         logger.info(
-            "Scheduler started. Ingest cron=%02d:%02d (%s).",
-            self.settings.ingest_cron_hour,
-            self.settings.ingest_cron_minute,
+            "Scheduler started. Ingest interval=%dh, daily report=%02d:%02d (%s).",
+            self.settings.ingest_interval_hours,
+            self.settings.weekly_cron_hour,
+            self.settings.weekly_cron_minute,
             self.settings.timezone,
         )
 

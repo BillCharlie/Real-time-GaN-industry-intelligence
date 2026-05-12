@@ -67,6 +67,7 @@
       <h1 id="heroTitle">GaNIndustry Monitor-assistant</h1>
       <div class="sub">企业白名单: VIS / Infineon / onsemi / ST / Navitas / Wolfspeed / TI / Renesas</div>
       <div class="sub">Timezone: <span id="cfgTz">Asia/Taipei</span> | DeepSeek: <span id="cfgDeepSeek">-</span> | Gmail: <span id="cfgEmail">-</span></div>
+      <div class="sub" style="margin-top:4px;color:#64748b;font-size:0.82em;">🕐 上次抓取: <span id="lastIngestTime">载入中...</span> &nbsp;|&nbsp; 每 <span id="ingestInterval">2</span> 小时自动抓取</div>
     </div>
     <div class="hero-actions">
       <button id="btnIngest" class="primary">立即抓取</button>
@@ -648,6 +649,18 @@ async function loadStats(){
   const data=await fetchJson("/api/stats?days=7");
   renderBars("macroBars","macro",data.macro||{},"linear-gradient(90deg,#ff6b35,#f39f79)");
   renderBars("techBars","tech",data.tech||{},"linear-gradient(90deg,#176087,#32a0c2)");
+  // 显示上次抓取时间
+  const li=data.last_ingest;
+  if(li&&li.started_at){
+    const d=new Date(li.started_at);
+    const pad=n=>String(n).padStart(2,"0");
+    const label=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const badge=li.status==="ok"?"✅":"⚠️";
+    el("lastIngestTime").textContent=`${badge} ${label}（新增 ${li.inserted||0} 篇）`;
+  } else {
+    el("lastIngestTime").textContent="尚无记录";
+  }
+  if(data.ingest_interval_hours) el("ingestInterval").textContent=data.ingest_interval_hours;
 }
 async function loadStocks(){const data=await fetchJson("/api/stocks"); renderStocks(data.items||[]); return data.items||[];}
 async function loadSourceList(){

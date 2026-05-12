@@ -67,24 +67,25 @@ def get_default_sources() -> List[SourceDefinition]:
             macro_hint="academic",
             tech_hint="high_frequency",
         ),
+        # ── Crossref API（每条用 ?_src= 区分 URL，绕过 DB 唯一约束；Crossref 忽略未知参数）──
         SourceDefinition(
             name="Crossref - Nature",
             source_type="crossref",
-            url="https://api.crossref.org/works",
+            url="https://api.crossref.org/works?_src=nature",
             params={"journal": "Nature", "query": "gallium nitride power electronics"},
             macro_hint="academic",
         ),
         SourceDefinition(
             name="Crossref - APL",
             source_type="crossref",
-            url="https://api.crossref.org/works",
+            url="https://api.crossref.org/works?_src=apl",
             params={"journal": "Applied Physics Letters", "query": "gallium nitride device"},
             macro_hint="academic",
         ),
         SourceDefinition(
             name="Crossref - IEEE TPEL",
             source_type="crossref",
-            url="https://api.crossref.org/works",
+            url="https://api.crossref.org/works?_src=ieee_tpel",
             params={"journal": "IEEE Transactions on Power Electronics", "query": "GaN converter"},
             macro_hint="academic",
             tech_hint="high_power",
@@ -92,7 +93,7 @@ def get_default_sources() -> List[SourceDefinition]:
         SourceDefinition(
             name="Crossref - IEEE EDL",
             source_type="crossref",
-            url="https://api.crossref.org/works",
+            url="https://api.crossref.org/works?_src=ieee_edl",
             params={"journal": "IEEE Electron Device Letters", "query": "GaN HEMT"},
             macro_hint="academic",
             tech_hint="high_frequency",
@@ -100,7 +101,7 @@ def get_default_sources() -> List[SourceDefinition]:
         SourceDefinition(
             name="Crossref - IEEE TED",
             source_type="crossref",
-            url="https://api.crossref.org/works",
+            url="https://api.crossref.org/works?_src=ieee_ted",
             params={"journal": "IEEE Transactions on Electron Devices", "query": "gallium nitride GaN"},
             macro_hint="academic",
             tech_hint="high_frequency",
@@ -108,7 +109,7 @@ def get_default_sources() -> List[SourceDefinition]:
         SourceDefinition(
             name="Crossref - IEEE Access GaN",
             source_type="crossref",
-            url="https://api.crossref.org/works",
+            url="https://api.crossref.org/works?_src=ieee_access",
             params={"journal": "IEEE Access", "query": "GaN power device"},
             macro_hint="academic",
             tech_hint="high_power",
@@ -116,7 +117,7 @@ def get_default_sources() -> List[SourceDefinition]:
         SourceDefinition(
             name="Crossref - Nature Electronics",
             source_type="crossref",
-            url="https://api.crossref.org/works",
+            url="https://api.crossref.org/works?_src=natelectron",
             params={"journal": "Nature Electronics", "query": "gallium nitride GaN"},
             macro_hint="academic",
             tech_hint="high_frequency",
@@ -124,7 +125,7 @@ def get_default_sources() -> List[SourceDefinition]:
         SourceDefinition(
             name="Crossref - Nature Energy GaN",
             source_type="crossref",
-            url="https://api.crossref.org/works",
+            url="https://api.crossref.org/works?_src=natenergy",
             params={"journal": "Nature Energy", "query": "GaN power conversion"},
             macro_hint="academic",
             tech_hint="high_power",
@@ -132,7 +133,7 @@ def get_default_sources() -> List[SourceDefinition]:
         SourceDefinition(
             name="Crossref - ScienceDirect SSE",
             source_type="crossref",
-            url="https://api.crossref.org/works",
+            url="https://api.crossref.org/works?_src=sse",
             params={"journal": "Solid-State Electronics", "query": "gallium nitride GaN HEMT"},
             macro_hint="academic",
             tech_hint="high_frequency",
@@ -140,7 +141,7 @@ def get_default_sources() -> List[SourceDefinition]:
         SourceDefinition(
             name="Crossref - ScienceDirect MSE-B",
             source_type="crossref",
-            url="https://api.crossref.org/works",
+            url="https://api.crossref.org/works?_src=mseb",
             params={"journal": "Materials Science and Engineering B", "query": "GaN epitaxy"},
             macro_hint="academic",
             tech_hint="materials",
@@ -148,7 +149,7 @@ def get_default_sources() -> List[SourceDefinition]:
         SourceDefinition(
             name="Crossref - Journal of Crystal Growth",
             source_type="crossref",
-            url="https://api.crossref.org/works",
+            url="https://api.crossref.org/works?_src=jcg",
             params={"journal": "Journal of Crystal Growth", "query": "GaN gallium nitride epitaxy"},
             macro_hint="academic",
             tech_hint="materials",

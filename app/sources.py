@@ -19,6 +19,7 @@ class SourceDefinition:
     params: Dict[str, Any] = field(default_factory=dict)
     macro_hint: str | None = None
     tech_hint: str | None = None
+    skip_page_preview: bool = False  # True for paywalled sites (IEEE, ScienceDirect, Nature)
 
 
 @dataclass
@@ -96,6 +97,90 @@ def get_default_sources() -> List[SourceDefinition]:
             macro_hint="academic",
             tech_hint="high_frequency",
         ),
+        # ── IEEE Xplore RSS ──────────────────────────────────────────────────────
+        SourceDefinition(
+            name="IEEE TPEL - Transactions on Power Electronics",
+            source_type="rss",
+            url="https://ieeexplore.ieee.org/rss/TOC63.XML",
+            macro_hint="academic",
+            tech_hint="high_power",
+            skip_page_preview=True,
+        ),
+        SourceDefinition(
+            name="IEEE EDL - Electron Device Letters",
+            source_type="rss",
+            url="https://ieeexplore.ieee.org/rss/TOC55.XML",
+            macro_hint="academic",
+            tech_hint="high_frequency",
+            skip_page_preview=True,
+        ),
+        SourceDefinition(
+            name="IEEE TED - Transactions on Electron Devices",
+            source_type="rss",
+            url="https://ieeexplore.ieee.org/rss/TOC68.XML",
+            macro_hint="academic",
+            tech_hint="high_frequency",
+            skip_page_preview=True,
+        ),
+        SourceDefinition(
+            name="IEEE JEDS - Journal of Electron Devices Society",
+            source_type="rss",
+            url="https://ieeexplore.ieee.org/rss/TOC6882348.XML",
+            macro_hint="academic",
+            tech_hint="high_frequency",
+            skip_page_preview=True,
+        ),
+        # ── Nature RSS ───────────────────────────────────────────────────────────
+        SourceDefinition(
+            name="Nature Electronics",
+            source_type="rss",
+            url="https://www.nature.com/natelectron.rss",
+            macro_hint="academic",
+            tech_hint="high_frequency",
+            skip_page_preview=True,
+        ),
+        SourceDefinition(
+            name="Nature Energy",
+            source_type="rss",
+            url="https://www.nature.com/nenergy.rss",
+            macro_hint="academic",
+            tech_hint="high_power",
+            skip_page_preview=True,
+        ),
+        SourceDefinition(
+            name="Nature Materials",
+            source_type="rss",
+            url="https://www.nature.com/nmat.rss",
+            macro_hint="academic",
+            tech_hint="materials",
+            skip_page_preview=True,
+        ),
+        # ── ScienceDirect RSS (Elsevier) ─────────────────────────────────────────
+        SourceDefinition(
+            name="ScienceDirect - Solid-State Electronics",
+            source_type="rss",
+            url="https://rss.sciencedirect.com/publication/science/00381101",
+            macro_hint="academic",
+            tech_hint="high_frequency",
+            skip_page_preview=True,
+        ),
+        SourceDefinition(
+            name="ScienceDirect - Materials Science & Engineering B",
+            source_type="rss",
+            url="https://rss.sciencedirect.com/publication/science/09215107",
+            macro_hint="academic",
+            tech_hint="materials",
+            skip_page_preview=True,
+        ),
+        SourceDefinition(
+            name="ScienceDirect - Applied Surface Science",
+            source_type="rss",
+            url="https://rss.sciencedirect.com/publication/science/01694332",
+            macro_hint="academic",
+            tech_hint="materials",
+            skip_page_preview=True,
+        ),
+        # ── Google News - GaN Fast Charger (Low Power) ───────────────────────────
         SourceDefinition(
             name="Google News - GaN Fast Charger (Low Power)",
             source_type="rss",
@@ -138,7 +223,8 @@ def _fetch_rss_like(source: SourceDefinition, max_items: int) -> List[RawArticle
         summary = _clean_text(entry.get("summary", "")).strip() or None
         content = _extract_entry_content(entry)
         # RSS sources often miss useful snippets; try pulling page metadata/body preview.
-        if source.source_type == "rss":
+        # Skip for paywalled academic sites (IEEE, ScienceDirect, Nature) — fetching would fail.
+        if source.source_type == "rss" and not source.skip_page_preview:
             needs_enrich = (not summary or len(summary) < 80) or (not content or len(content) < 180)
             if needs_enrich:
                 page_summary, page_content = fetch_article_page_preview(link)

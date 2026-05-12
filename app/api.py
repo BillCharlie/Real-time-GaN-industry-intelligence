@@ -545,3 +545,52 @@ def api_send_weekly():
         subject, text_body, html_body, stats = build_weekly_report(session, settings, deepseek_client)
         send_weekly_email(session, settings, subject, text_body, html_body)
     return {"ok": True, "subject": subject, "stats": stats}
+
+
+@app.post("/api/admin/send-test-email")
+def api_send_test_email(token: str = Query(...)):
+    """Send a minimal test email to verify Resend API is working. Protected by ADMIN_TOKEN."""
+    import os
+    expected = os.getenv("ADMIN_TOKEN", "")
+    if not expected or token != expected:
+        raise HTTPException(status_code=403, detail="Invalid token")
+    if not settings.email_enabled:
+        raise HTTPException(status_code=400, detail="Email is not configured (check GMAIL_TO / GMAIL_USER).")
+
+    from .reporter import _send_via_resend, _smtp_send
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    subject = "[GaN Monitor] ✅ 测试邮件 — Resend 连通性验证"
+    html_body = """
+    <html><body style="font-family:Arial,sans-serif;line-height:1.6;">
+      <h2 style="color:#2563eb;">🎉 GaN Intelligence Bot — 测试邮件</h2>
+      <p>如果你收到这封信，代表 <b>Resend API</b> 已成功与 Railway 后端连通！</p>
+      <p>每日晨报将在 <b>台北时间 08:00</b> 自动发送。</p>
+      <hr/>
+      <small style="color:#6b7280;">此为系统自动测试信件，请勿回复。</small>
+    </body></html>
+    """
+    text_body = "GaN Intelligence Bot 测试邮件 — Resend 连通性验证成功。"
+
+    recipient = settings.gmail_to
+    recipients = [r.strip() for r in recipient.split(",") if r.strip()]
+
+    resend_key = os.getenv("RESEND_API_KEY", "").strip()
+    if resend_key:
+        ok = _send_via_resend(resend_key, recipients, subject, html_body,
+                              settings.gmail_from_display_name)
+        method = "resend"
+    else:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"{settings.gmail_from_display_name} <{settings.gmail_user}>"
+        msg["To"] = recipient
+        msg.attach(MIMEText(text_body, "plain", "utf-8"))
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+        ok = _smtp_send(settings.gmail_user, settings.gmail_app_password, recipients, msg)
+        method = "smtp"
+
+    if not ok:
+        raise HTTPException(status_code=500, detail=f"Email send failed via {method}. Check Railway logs.")
+    return {"ok": True, "method": method, "recipients": recipients, "subject": subject}

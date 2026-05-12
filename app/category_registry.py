@@ -131,6 +131,8 @@ def update_category(
     label: Optional[str] = None,
     active: Optional[bool] = None,
     sort_order: Optional[int] = None,
+    parent_id: Optional[int] = None,
+    move_to_root: bool = False,
 ) -> CategoryField:
     row = _get_category_or_raise(session, category_id)
     if label is not None:
@@ -142,6 +144,13 @@ def update_category(
         row.active = bool(active)
     if sort_order is not None:
         row.sort_order = int(sort_order)
+    if move_to_root:
+        row.parent_id = None
+    elif parent_id is not None:
+        parent = session.get(CategoryField, parent_id)
+        if parent is None:
+            raise ValueError(f"Parent category #{parent_id} not found.")
+        row.parent_id = parent_id
     session.commit()
     session.refresh(row)
     return row

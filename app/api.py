@@ -138,6 +138,8 @@ class CategoryUpdateRequest(BaseModel):
     label: Optional[str] = None
     active: Optional[bool] = None
     sort_order: Optional[int] = None
+    parent_id: Optional[int] = None
+    move_to_root: bool = False
 
 
 @app.on_event("startup")
@@ -352,6 +354,8 @@ def api_update_category(category_id: int, payload: CategoryUpdateRequest, sessio
             label=payload.label,
             active=payload.active,
             sort_order=payload.sort_order,
+            parent_id=payload.parent_id,
+            move_to_root=payload.move_to_root,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

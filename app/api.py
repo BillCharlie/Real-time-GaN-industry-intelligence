@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from .category_registry import (
@@ -27,6 +28,7 @@ from .deepseek_client import DeepSeekClient
 from .models import Article, Base, IngestLog
 from .pipeline import (
     backfill_stock_snapshots,
+    count_articles,
     enrich_existing_article_content,
     query_articles,
     query_category_stats,
@@ -80,6 +82,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _runtime_scheduler_status() -> dict:
+    runtime_scheduler: RuntimeScheduler | None = getattr(app.state, "runtime_scheduler", None)
+    if not runtime_scheduler:
+        return {
+            "scheduler_running": False,
+            "next_ingest_run": None,
+            "ingest_interval_minutes": settings.effective_ingest_interval_minutes,
+            "ingest_interval_hours": settings.effective_ingest_interval_hours,
+        }
+    status = runtime_scheduler.status()
+    return {
+        "scheduler_running": status.get("running", False),
+        "next_ingest_run": status.get("next_ingest_run"),
+        "ingest_interval_minutes": status.get(
+            "ingest_interval_minutes", settings.effective_ingest_interval_minutes
+        ),
+        "ingest_interval_hours": status.get(
+            "ingest_interval_hours", settings.effective_ingest_interval_hours
+        ),
+    }
 
 
 class SourceCreateRequest(BaseModel):
@@ -194,6 +218,7 @@ def api_config():
         "email_enabled": settings.email_enabled,
         "timezone": settings.timezone,
         "stock_tickers": settings.stock_tickers,
+        **_runtime_scheduler_status(),
     }
 
 
@@ -220,8 +245,19 @@ def api_articles(
         date_to=date_to,
         limit=limit,
     )
+    total = count_articles(
+        session,
+        macro=macro,
+        tech=tech,
+        module_group=module_group,
+        q=q,
+        days=days,
+        date_from=date_from,
+        date_to=date_to,
+    )
     return {
-        "count": len(rows),
+        "count": total,
+        "returned": len(rows),
         "items": [
             {
                 "id": row.id,
@@ -289,13 +325,25 @@ def api_stats(days: int = Query(default=7, ge=1, le=90), session: Session = Depe
             "finished_at": last_log.finished_at.isoformat() if last_log.finished_at else None,
             "inserted": last_log.inserted,
             "fetched": last_log.fetched,
+            "skipped": last_log.skipped,
+            "errors": last_log.errors,
+            "error_message": last_log.error_message,
             "status": last_log.status,
         }
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    total_articles = int(session.query(Article).count())
+    window_articles = int(
+        session.query(Article)
+        .filter(or_(Article.published_at.is_(None), Article.published_at >= since))
+        .count()
+    )
     return {
         "days": days,
         "updated_at": datetime.utcnow().isoformat() + "Z",
         "last_ingest": last_ingest,
-        "ingest_interval_hours": settings.ingest_interval_hours,
+        "total_articles": total_articles,
+        "window_articles": window_articles,
+        **_runtime_scheduler_status(),
         **query_category_stats(session, days=days),
     }
 

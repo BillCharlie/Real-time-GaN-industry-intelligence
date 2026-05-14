@@ -34,7 +34,7 @@ python main.py
 可选字段：
 
 - `STOCK_TICKERS_CSV` 自定义追踪股票
-- `INGEST_CRON_HOUR` / `INGEST_CRON_MINUTE` 每日自动抓取时间（默认 05:00，按 `TIMEZONE`）
+- `INGEST_INTERVAL_MINUTES` 自动抓取间隔（默认 120 分钟，即每 2 小时）
 - `STOCK_INTERVAL_MINUTES` 股票快照抓取频率
 - `WEEKLY_CRON_*` 晨报时间（按 `TIMEZONE`，默认周一/周四 07:00）
 
@@ -61,8 +61,8 @@ python main.py
   - 对缺少摘要/正文的文章抓取页面元描述与正文片段
   - 可通过页面按钮“补全概要/正文”触发
 - 抓取调度：
-  - 服务运行中，每日 05:00 自动执行抓取任务（按 `TIMEZONE`）
-  - 若服务重启/停机错过自动抓取，可在页面点击“立即抓取”手动执行
+  - 服务启动后会立即执行一次抓取，之后每 `INGEST_INTERVAL_MINUTES` 分钟自动执行一次
+  - 若某次抓取没有新增文章，通常代表抓到的 URL 已存在或被 GaN 相关性过滤，不代表排程没有运行；可在页面查看上次抓取的 fetched/inserted/skipped 统计
 
 ## 4. 真实性校验
 

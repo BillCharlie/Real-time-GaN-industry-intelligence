@@ -12,7 +12,8 @@ class Settings(BaseSettings):
     db_url: str = "sqlite:///./data/ganiq.db"
     timezone: str = "Asia/Taipei"
 
-    ingest_interval_hours: int = 2        # auto-fetch every N hours
+    ingest_interval_hours: int = Field(default=2, ge=1)  # backward-compatible hours setting
+    ingest_interval_minutes: Optional[int] = Field(default=None, ge=1)
     stock_interval_minutes: int = 30
     daily_report_hour: int = 8            # daily report at HH:00 (Asia/Taipei)
     daily_report_minute: int = 0          # weekly = +5 min, monthly = +10 min
@@ -33,6 +34,16 @@ class Settings(BaseSettings):
     gmail_from_display_name: str = "GaN Intelligence Bot"
 
     stock_tickers_csv: str = "NVTS,ON,STM,IFNNY,WOLF,TXN,RNECY,MCHP,ADI"
+
+    @computed_field
+    @property
+    def effective_ingest_interval_minutes(self) -> int:
+        return int(self.ingest_interval_minutes or self.ingest_interval_hours * 60)
+
+    @computed_field
+    @property
+    def effective_ingest_interval_hours(self) -> float:
+        return round(self.effective_ingest_interval_minutes / 60, 2)
 
     @computed_field
     @property

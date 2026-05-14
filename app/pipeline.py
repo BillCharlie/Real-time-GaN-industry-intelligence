@@ -42,6 +42,7 @@ class IngestResult:
 
 
 def run_ingestion(session: Session, settings: Settings, deepseek: DeepSeekClient) -> IngestResult:
+    run_started_at = datetime.now(timezone.utc)
     result = IngestResult()
     macro_keys = get_active_category_keys(session, "macro") or {"industry", "stock", "academic"}
     tech_keys = get_active_category_keys(session, "tech") or {
@@ -196,6 +197,7 @@ def run_ingestion(session: Session, settings: Settings, deepseek: DeepSeekClient
     # ── record ingestion log ──────────────────────────────────────────────────
     try:
         log = IngestLog(
+            started_at=run_started_at,
             finished_at=datetime.now(timezone.utc),
             fetched=result.fetched,
             inserted=result.inserted,
@@ -329,7 +331,58 @@ def query_articles(
     date_to: Optional[date] = None,
     limit: int = 200,
 ) -> List[Article]:
-    stmt = select(Article)
+    stmt = _apply_article_filters(
+        select(Article),
+        session,
+        macro=macro,
+        tech=tech,
+        module_group=module_group,
+        q=q,
+        days=days,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    stmt = stmt.order_by(desc(Article.published_at), desc(Article.created_at)).limit(limit)
+    return list(session.scalars(stmt))
+
+
+def count_articles(
+    session: Session,
+    *,
+    macro: Optional[str] = None,
+    tech: Optional[str] = None,
+    module_group: Optional[str] = None,
+    q: Optional[str] = None,
+    days: int = 30,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+) -> int:
+    stmt = _apply_article_filters(
+        select(func.count()).select_from(Article),
+        session,
+        macro=macro,
+        tech=tech,
+        module_group=module_group,
+        q=q,
+        days=days,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    return int(session.scalar(stmt) or 0)
+
+
+def _apply_article_filters(
+    stmt,
+    session: Session,
+    *,
+    macro: Optional[str] = None,
+    tech: Optional[str] = None,
+    module_group: Optional[str] = None,
+    q: Optional[str] = None,
+    days: int = 30,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+):
     if date_from or date_to:
         stamp = func.coalesce(Article.published_at, Article.created_at)
         if date_from:
@@ -371,8 +424,7 @@ def query_articles(
     if q:
         keyword = f"%{q.strip()}%"
         stmt = stmt.where(or_(Article.title.ilike(keyword), Article.summary.ilike(keyword)))
-    stmt = stmt.order_by(desc(Article.published_at), desc(Article.created_at)).limit(limit)
-    return list(session.scalars(stmt))
+    return stmt
 
 
 def query_category_stats(session: Session, *, days: int = 7) -> Dict[str, Dict[str, int]]:

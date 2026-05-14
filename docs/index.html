@@ -75,7 +75,7 @@
       <h1 id="heroTitle">GaNIndustry Monitor-assistant</h1>
       <div class="sub">企业白名单: VIS / Infineon / onsemi / ST / Navitas / Wolfspeed / TI / Renesas</div>
       <div class="sub">Timezone: <span id="cfgTz">Asia/Taipei</span> | DeepSeek: <span id="cfgDeepSeek">-</span> | Gmail: <span id="cfgEmail">-</span></div>
-      <div class="sub" style="margin-top:4px;color:#64748b;font-size:0.82em;">🕐 上次抓取: <span id="lastIngestTime">载入中...</span> &nbsp;|&nbsp; 每 <span id="ingestInterval">2</span> 小时自动抓取</div>
+      <div class="sub" style="margin-top:4px;color:#64748b;font-size:0.82em;">🕐 上次抓取: <span id="lastIngestTime">载入中...</span> &nbsp;|&nbsp; 每 <span id="ingestInterval">2</span> 小时自动抓取 &nbsp;|&nbsp; 下次: <span id="nextIngestTime">载入中...</span></div>
     </div>
     <div class="hero-actions">
       <button id="btnIngest" class="primary">立即抓取</button>
@@ -214,6 +214,7 @@ let techToMacroAnyKey = {};
 let categoryById = {};
 let categoryCreateContext = { groupType: null, parentId: null, parentLabel: "", mode: "root" };
 const collapsedTreeNodes = new Set();
+let dashboardRefreshTimer = null;
 let activeFilterNode = {key:"", groupType:""};
 const collapsedFilterNodes = new Set();
 
@@ -230,6 +231,16 @@ function setCategoryStatus(msg){categoryStatusEl.textContent = msg || "";}
 function escapeHtml(v){return String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#39;");}
 function fmtNum(v){return (v ?? "-").toLocaleString ? v.toLocaleString() : v;}
 function fmtDate(s){if(!s) return "-"; const d = new Date(s); return Number.isNaN(d.getTime()) ? s : d.toLocaleString();}
+function formatDateTime(d){
+  if(!(d instanceof Date) || Number.isNaN(d.getTime())) return "-";
+  const pad=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function formatHours(v){
+  const n=Number(v);
+  if(!Number.isFinite(n)) return "2";
+  return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/,"");
+}
 function fmtPct(v){if(v===null||v===undefined) return "-"; return `${Number(v).toFixed(2)}%`;}
 function clipText(text,limit=520){if(!text) return ""; const raw=String(text).trim(); return raw.length<=limit?raw:`${raw.slice(0,limit)}...`;}
 const knownKeyLabels = {
@@ -560,7 +571,6 @@ function renderBars(containerId,type,data,color){
   }).join("");
 }
 function renderArticles(items){
-  el("statArticles").textContent=items.length;
   const box=el("articles");
   if(!items.length){box.innerHTML=`<div class="muted">当前筛选没有数据。</div>`;return;}
   box.innerHTML=items.map((row)=>`<article class="article">
@@ -703,24 +713,29 @@ async function loadArticles(){
   if(!dateFrom&&!dateTo) params.set("days",el("days").value||"30");
   const data=await fetchJson(`/api/articles?${params.toString()}`);
   renderArticles(data.items||[]);
-  setStatus(`已加载 ${data.count||0} 条`);
+  setStatus(`已加载 ${data.returned ?? (data.items||[]).length} / ${data.count ?? 0} 条`);
 }
 async function loadStats(){
   const data=await fetchJson("/api/stats?days=7");
   renderBars("macroBars","macro",data.macro||{},"linear-gradient(90deg,#ff6b35,#f39f79)");
   renderBars("techBars","tech",data.tech||{},"linear-gradient(90deg,#176087,#32a0c2)");
+  el("statArticles").textContent=data.total_articles ?? 0;
   // 显示上次抓取时间
   const li=data.last_ingest;
   if(li&&li.started_at){
-    const d=new Date(li.started_at);
-    const pad=n=>String(n).padStart(2,"0");
-    const label=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const label=formatDateTime(new Date(li.started_at));
     const badge=li.status==="ok"?"✅":"⚠️";
-    el("lastIngestTime").textContent=`${badge} ${label}（新增 ${li.inserted||0} 篇）`;
+    const errorText=li.errors?` / 错误 ${li.errors}`:"";
+    el("lastIngestTime").textContent=`${badge} ${label}（新增 ${li.inserted||0} 篇 / 抓取 ${li.fetched||0} / 跳过 ${li.skipped||0}${errorText}）`;
   } else {
     el("lastIngestTime").textContent="尚无记录";
   }
-  if(data.ingest_interval_hours) el("ingestInterval").textContent=data.ingest_interval_hours;
+  if(data.ingest_interval_minutes){
+    el("ingestInterval").textContent=formatHours(data.ingest_interval_minutes/60);
+  }else if(data.ingest_interval_hours){
+    el("ingestInterval").textContent=formatHours(data.ingest_interval_hours);
+  }
+  el("nextIngestTime").textContent=data.next_ingest_run ? formatDateTime(new Date(data.next_ingest_run)) : "等待排程";
 }
 async function loadStocks(){const data=await fetchJson("/api/stocks"); renderStocks(data.items||[]); return data.items||[];}
 async function loadSourceList(){
@@ -959,6 +974,11 @@ async function initialize(){
     setStatus("系统就绪");
     setSourceStatus("来源管理就绪");
     setCategoryStatus("分类树已就绪，可新增父分类与子分类");
+    if(!dashboardRefreshTimer){
+      dashboardRefreshTimer=setInterval(()=>{
+        Promise.all([loadArticles(),loadStats(),loadStocks()]).catch((e)=>setStatus(`自动刷新失败: ${String(e).slice(0,160)}`));
+      },5*60*1000);
+    }
   }catch(error){setStatus(`加载失败: ${String(error).slice(0,180)}`);}
 }
 initialize();

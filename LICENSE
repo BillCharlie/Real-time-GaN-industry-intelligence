@@ -1,0 +1,183 @@
+Copyright (c) 2024–2026 Piny yu-Chen, Taiwan (chenbill718@gmail.com)
+All Rights Reserved.
+
+────────────────────────────────────────────────────────────────────────────────
+               GaN INDUSTRY MONITOR SOURCE AVAILABLE LICENSE v2.0
+────────────────────────────────────────────────────────────────────────────────
+
+This software, "GaN Industry Monitor Assistant," including all source code,
+algorithms, architectural designs, data structures, workflows, industry
+intelligence logic, prompt engineering content, configuration files,
+documentation, and associated materials (collectively, the "Software"), is the
+exclusive intellectual property of the Copyright Holder.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 1 — GRANT OF NON-COMMERCIAL LICENSE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Subject to the terms of this License, the Copyright Holder grants you a
+limited, non-exclusive, non-transferable, royalty-free license to:
+
+  (a) View and study the source code for personal, educational, or academic
+      research purposes;
+
+  (b) Run the Software locally for personal, non-commercial use;
+
+  (c) Fork the repository and make modifications solely for personal,
+      non-commercial use, provided all conditions in Section 2 are met;
+
+  (d) Share or publish non-commercial derivative works (e.g., student projects,
+      academic demonstrations) provided this License is included in full.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 2 — MANDATORY CONDITIONS (ALL USE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Any permitted use of the Software, in whole or in part, including derivative
+works, integrations, academic publications, or demonstrations, MUST:
+
+  1. ATTRIBUTION — Prominently display the following notice in any work that
+     incorporates or is derived from this Software:
+
+       "Based on GaN Industry Monitor Assistant by Piny yu-Chen, Taiwan
+        (https://github.com/BillCharlie/Real-time-GaN-industry-intelligence)"
+
+     This attribution must appear in: (i) any user-facing interface, README,
+     or documentation; (ii) any academic paper, thesis, report, or presentation
+     that uses or references this Software or its design; (iii) any derived
+     software's license, credits, or about page.
+
+  2. AUTHOR CREDIT — Whenever this Software is downloaded, deployed, or
+     referenced, the following credit MUST be clearly stated:
+
+       Author: Piny yu-Chen, Taiwan
+
+  3. LICENSE PRESERVATION — This LICENSE file must be retained in full and
+     without modification in any copy or substantial portion of the Software.
+
+  4. NO MISREPRESENTATION — You may not represent this Software or any
+     derivative as your own original work, claim authorship of the core
+     algorithms or architecture, or remove, alter, or obscure any copyright,
+     trademark, or attribution notices.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 3 — COMMERCIAL USE RESTRICTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+COMMERCIAL USE IS STRICTLY PROHIBITED WITHOUT PRIOR WRITTEN PERMISSION.
+
+"Commercial Use" includes, but is not limited to:
+
+  • Deploying or operating this Software (or a derivative) as part of a paid
+    product, SaaS platform, API service, or subscription offering;
+  • Incorporating this Software into any product or service that generates
+    revenue, directly or indirectly;
+  • Licensing, sublicensing, selling, or otherwise transferring this Software
+    or derivative works to third parties for commercial purposes;
+  • Using this Software to provide market intelligence consulting, contract
+    research, or professional services to external clients;
+  • Using this Software's industry monitoring logic, data aggregation pipelines,
+    or AI analysis strategies in a commercial research collaboration, funded
+    project, or technology transfer without explicit written consent.
+
+To request a commercial license, contact: chenbill718@gmail.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 4 — PROTECTED INTELLECTUAL PROPERTY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The following elements of the Software are explicitly protected and may NOT
+be reproduced, adapted, or used as the basis for any other work without
+written permission, even for non-commercial purposes:
+
+  • Overall system architecture and multi-agent design pattern;
+  • The GaN semiconductor industry intelligence collection and classification
+    methodology, including source selection criteria and data taxonomy;
+  • The multi-source aggregation pipeline and automated report generation logic;
+  • Any prompt engineering strategies, LLM integration patterns, chain-of-thought
+    reasoning designs, or AI-assisted industry analysis workflows;
+  • The automated notification and delivery mechanisms;
+  • Domain-specific knowledge structuring for GaN power electronics and
+    photonics industry monitoring as implemented in this Software.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 5 — PROHIBITED ACTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You may NOT:
+
+  (a) Sublicense, sell, rent, lease, or otherwise transfer rights to the
+      Software or any portion thereof;
+  (b) Use the Software or its design concepts to create a competing product
+      or service without prior written consent;
+  (c) Reverse-engineer any compiled or obfuscated components for commercial
+      exploitation;
+  (d) Remove or alter any copyright notices, this LICENSE, or attribution
+      statements from any file in this repository;
+  (e) Use the Software in any manner that violates applicable laws or
+      regulations, including data privacy laws and export control laws.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 6 — ACADEMIC & RESEARCH USE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Academic and non-commercial research use is permitted provided that:
+
+  (a) Any publication, thesis, report, or presentation referencing this
+      Software includes the following citation or equivalent:
+
+        Piny yu-Chen. GaN Industry Monitor Assistant [Software]. Taiwan.
+        Available at:
+        https://github.com/BillCharlie/Real-time-GaN-industry-intelligence
+
+  (b) The use does not involve commercial funding or commercialization of
+      results derived directly from this Software without prior written consent.
+
+  (c) The author is notified of publications that significantly rely on
+      this Software, as a courtesy: chenbill718@gmail.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 7 — DISTRIBUTION OF VERBATIM COPIES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You may reproduce and distribute verbatim copies of this License document,
+but changing it is not permitted. If you distribute the Software, you must
+include this License in its entirety and ensure recipients are aware of
+its terms before use.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 8 — NO WARRANTY / LIMITATION OF LIABILITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THE SOFTWARE IS PROVIDED "AS IS," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 9 — TERMINATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your rights under this License terminate automatically and immediately upon
+any breach of its terms. Upon termination, you must cease all use of the
+Software and destroy all copies in your possession.
+
+The Copyright Holder reserves the right to enforce this License and pursue
+all available legal remedies for violations, including injunctive relief
+and monetary damages.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 10 — GOVERNING LAW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This License shall be governed by and construed in accordance with the laws
+of Taiwan (Republic of China). Any disputes arising under this License shall
+be subject to the exclusive jurisdiction of the courts of Taiwan.
+
+────────────────────────────────────────────────────────────────────────────────
+For permissions beyond the scope of this license, contact:
+  Piny yu-Chen, Taiwan — chenbill718@gmail.com
+  GitHub: https://github.com/BillCharlie
+────────────────────────────────────────────────────────────────────────────────

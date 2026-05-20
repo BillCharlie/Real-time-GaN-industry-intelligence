@@ -1,4 +1,4 @@
-# GaNIndustry Monitor-assistant
+# GaNIndustry Monitor-assistant(请必须阅读License）
 
 一个可运行的 GaN（氮化镓）产业情报系统，支持：
 

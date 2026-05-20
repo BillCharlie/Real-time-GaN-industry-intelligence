@@ -1,4 +1,4 @@
-# GaN Industry Monitor Assistant — GaN 半導體產業即時情報系統（请必须阅读License）
+# GaN Industry Monitor Assistant — GaN 半導體產業即時情報系統（請務必閱讀 License）
 # GaN Industry Monitor Assistant — Real-Time GaN Semiconductor Industry Intelligence
 
 > **作者 / Author:** Ping yu-Chen, Taiwan

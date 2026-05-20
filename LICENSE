@@ -1,4 +1,4 @@
-Copyright (c) 2024–2026 Piny yu-Chen, Taiwan (chenbill718@gmail.com)
+Copyright (c) 2024–2026 Ping yu-Chen, Taiwan (chenbill718@gmail.com)
 All Rights Reserved.
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ works, integrations, academic publications, or demonstrations, MUST:
   1. ATTRIBUTION — Prominently display the following notice in any work that
      incorporates or is derived from this Software:
 
-       "Based on GaN Industry Monitor Assistant by Piny yu-Chen, Taiwan
+       "Based on GaN Industry Monitor Assistant by Ping yu-Chen, Taiwan
         (https://github.com/BillCharlie/Real-time-GaN-industry-intelligence)"
 
      This attribution must appear in: (i) any user-facing interface, README,
@@ -50,7 +50,7 @@ works, integrations, academic publications, or demonstrations, MUST:
   2. AUTHOR CREDIT — Whenever this Software is downloaded, deployed, or
      referenced, the following credit MUST be clearly stated:
 
-       Author: Piny yu-Chen, Taiwan
+       Author: Ping yu-Chen, Taiwan
 
   3. LICENSE PRESERVATION — This LICENSE file must be retained in full and
      without modification in any copy or substantial portion of the Software.
@@ -126,7 +126,7 @@ Academic and non-commercial research use is permitted provided that:
   (a) Any publication, thesis, report, or presentation referencing this
       Software includes the following citation or equivalent:
 
-        Piny yu-Chen. GaN Industry Monitor Assistant [Software]. Taiwan.
+        Ping yu-Chen. GaN Industry Monitor Assistant [Software]. Taiwan.
         Available at:
         https://github.com/BillCharlie/Real-time-GaN-industry-intelligence
 
@@ -178,6 +178,6 @@ be subject to the exclusive jurisdiction of the courts of Taiwan.
 
 ────────────────────────────────────────────────────────────────────────────────
 For permissions beyond the scope of this license, contact:
-  Piny yu-Chen, Taiwan — chenbill718@gmail.com
+  Ping yu-Chen, Taiwan — chenbill718@gmail.com
   GitHub: https://github.com/BillCharlie
 ────────────────────────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 # GaN Industry Monitor Assistant — GaN 半導體產業即時情報系統（請務必閱讀 License）
 # GaN Industry Monitor Assistant — Real-Time GaN Semiconductor Industry Intelligence
+# https://billcharlie.github.io/Real-time-GaN-industry-intelligence/
 
 > **作者 / Author:** Ping yu-Chen, Taiwan
 > **版本 / Version:** v2.0

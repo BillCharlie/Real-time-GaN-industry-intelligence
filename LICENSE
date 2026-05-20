@@ -90,15 +90,115 @@ The following elements of the Software are explicitly protected and may NOT
 be reproduced, adapted, or used as the basis for any other work without
 written permission, even for non-commercial purposes:
 
-  • Overall system architecture and multi-agent design pattern;
-  • The GaN semiconductor industry intelligence collection and classification
-    methodology, including source selection criteria and data taxonomy;
-  • The multi-source aggregation pipeline and automated report generation logic;
-  • Any prompt engineering strategies, LLM integration patterns, chain-of-thought
-    reasoning designs, or AI-assisted industry analysis workflows;
-  • The automated notification and delivery mechanisms;
-  • Domain-specific knowledge structuring for GaN power electronics and
-    photonics industry monitoring as implemented in this Software.
+  4.1 SYSTEM ARCHITECTURE & PIPELINE DESIGN
+      • The five-stage intelligence pipeline: Ingestion → Relevance Filtering
+        → Dual-Stage Classification → Storage → Reporting, implemented
+        across sources.py, pipeline.py, taxonomy.py, deepseek_client.py,
+        reporter.py, and scheduler.py (~4,600 lines total);
+      • The APScheduler AsyncIOScheduler job orchestration with five
+        coordinated jobs: ingest_job (interval, configurable minutes),
+        stock_job (30 min), daily_report_job (cron 08:00), weekly_report_job
+        (Sun 08:05), monthly_report_job (month-end 08:10), all keyed to
+        Asia/Taipei timezone with coalescing and max_instances=1 guard;
+      • The SourceDefinition dataclass schema {name, source_type, url,
+        params, macro_hint, tech_hint, skip_page_preview} and the 25
+        pre-configured source registry spanning Google News RSS (4 targeted
+        queries), arXiv API, Crossref REST API (7 journals), IEEE Xplore RSS
+        (4 TOC feeds), Nature RSS (3), and ScienceDirect RSS (3).
+
+  4.2 GaN-SPECIFIC RELEVANCE FILTERING ALGORITHM
+      • The _is_gan_relevant_article() function in pipeline.py implementing
+        a dual-criteria gate:
+        — Inclusion: exact match "gallium nitride" or "氮化镓" (auto-accept),
+          OR word-boundary \bGaN\b with co-occurrence of any GAN_SEMICONDUCTOR_HINTS
+          {"semiconductor", "power electronics", "hemt", "gan fet", "transistor",
+          "charger", "inverter", "mmwave", "wafer", "epitaxy"};
+        — Exclusion: automatic rejection if AI/ML tokens detected
+          {"generative adversarial", "diffusion", "large language model",
+          "machine learning", "image generation"};
+      • This algorithm is the proprietary gate that distinguishes GaN power
+        semiconductor content from unrelated GAN homograph noise (generative
+        adversarial networks) — its specific token sets and logic are
+        original intellectual property.
+
+  4.3 DUAL-STAGE CLASSIFICATION SYSTEM
+      • Stage 1 — Deterministic Rule Engine (taxonomy.py):
+        classify_text(title, summary) returning (macro, tech, tags[])
+        via hardcoded _MACRO_RULES and _TECH_RULES keyword lookup tables
+        and _TAG_KEYWORDS list, fully offline with zero external API calls.
+        Three macro categories: "academic", "industry", "stock".
+        Six base tech categories: "low_power", "high_power",
+        "high_frequency", "materials", "packaging", "other";
+      • Stage 2 — LLM Refinement (deepseek_client.py):
+        DeepSeekClient.analyze_article() posting to DeepSeek Chat API
+        (model: deepseek-chat, temperature: 0.2, JSON mode) with a
+        structured prompt encoding {title, summary, hints, macro_choices,
+        tech_choices, task} — the task instruction mandates output of
+        macro_category, tech_category, sentiment_score (range -1 to 1),
+        impact_score (range 0 to 100), and analysis_text (≤120 words,
+        Chinese) in strict JSON format;
+      • The AnalysisResult dataclass {macro_category, tech_category,
+        sentiment_score, impact_score, analysis_text} and the tenacity
+        retry decorator (3 attempts, exponential backoff) with graceful
+        fallback to Stage 1 results on failure.
+
+  4.4 CATEGORY HIERARCHY & RESOLUTION LOGIC
+      • The CategoryField hierarchical tree model in category_registry.py
+        with macro roots (academic/industry/stock) as parents and
+        tech categories (industry_low_power, academic_high_frequency, etc.)
+        as children, stored in SQLite with composite unique index on
+        (group_type, key);
+      • The _resolve_tech_choice() smart mapping algorithm:
+        — Direct match → return as-is;
+        — Prefix reconstruction: "high_power" + macro "industry"
+          → "industry_high_power";
+        — Fallback chain: "{macro}_other" → "industry_other"
+          → "academic_other" → first sorted valid key;
+      • The _normalize_article_tech_categories() cascade function that
+        reassigns all articles to active categories upon category deletion,
+        and the ensure_seed_categories() idempotent seeder.
+
+  4.5 SOURCE VERIFICATION & COMPANY WHITELIST SYSTEM
+      • The verify_source_url() algorithm in source_registry.py
+        performing three-stage validation: URL format check →
+        domain trust check against 49 hardcoded STATIC_TRUSTED_DOMAIN_SUFFIXES
+        (including news.google.com, arxiv.org, ieee.org, ieeexplore.ieee.org,
+        nature.com, wolfspeed.com, navitassemi.com, vis.com.tw, etc.)
+        plus runtime whitelist → HTTP reachability test (15s timeout);
+      • The sync_company_whitelist_sources() auto-generation function that
+        constructs targeted Google News RSS queries for whitelisted company
+        domains using the pattern:
+        site:{domain} ("gallium nitride" OR ("GaN" semiconductor))
+        -generative -adversarial when:14d
+        and idempotently creates/activates/deactivates corresponding source
+        entries in the database.
+
+  4.6 MULTI-LEVEL CHINESE REPORTING SYSTEM
+      • Three distinct DeepSeek prompt templates for Chinese language
+        industry analysis:
+        — Daily (100–150 words): 1–3 key dynamics + industry significance;
+        — Weekly (200–280 words): tech/industry/market dynamics + trends;
+        — Monthly (350–450 words): four-section structured analysis
+          (① monthly summary ② vs-prior-month comparison ③ key event
+          commentary ④ forward-looking signals);
+      • The HTML email rendering pipeline in reporter.py with inline CSS
+        and dynamic section composition (AI summary block, macro/tech
+        distribution stat-chips, article lists by macro category, monthly
+        trend delta tables with up/down indicators), dual transport
+        abstraction (Resend API primary, Gmail SMTP fallback);
+      • All report sends logged in the ReportLog table with report_type,
+        recipient, subject, status, and error_message for audit trails.
+
+  4.7 DATA SCHEMA & STORAGE DESIGN
+      • The Article ORM model composite index
+        idx_articles_macro_tech_pub (macro_category, tech_category,
+        published_at) enabling efficient category-filtered time-range
+        queries across the full article corpus;
+      • The page preview extraction algorithm in fetch_article_page_preview()
+        using BeautifulSoup with meta-tag priority ordering
+        (og:description → name=description → twitter:description) and
+        structural fallback to <article>/<main>/<body> paragraph content,
+        with Google News redirect detection and 6-second timeout.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   SECTION 5 — PROHIBITED ACTIONS

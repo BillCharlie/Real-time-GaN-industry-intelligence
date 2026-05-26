@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -10,10 +10,10 @@ from .config import Settings
 from .db import SessionLocal
 from .deepseek_client import DeepSeekClient
 from .models import IngestLog
-from .pipeline import refresh_stock_snapshots, run_ingestion
+from .pipeline import run_ingestion
 from .reporter import (
-    build_daily_report,
     build_monthly_report,
+    build_triday_report,
     build_weekly_report,
     send_report_email,
 )
@@ -29,49 +29,49 @@ class RuntimeScheduler:
 
     def start(self) -> None:
         s = self.scheduler
-        interval_minutes = self.settings.effective_ingest_interval_minutes
-        now = datetime.now(ZoneInfo(self.settings.timezone))
+        tz = ZoneInfo(self.settings.timezone)
+        now = datetime.now(tz)
+        h = self.settings.daily_report_hour
+        m = self.settings.daily_report_minute
 
-        # ── 每 N 小时自动抓取 ──────────────────────────────────────────────
-        s.add_job(self._ingest_job, trigger="interval",
-                  minutes=interval_minutes,
-                  next_run_time=now,
-                  id="ingest_job", max_instances=1, coalesce=True,
-                  misfire_grace_time=30 * 60, replace_existing=True)
+        # Next 08:00 occurrence (today if not yet passed, else tomorrow)
+        first_run = now.replace(hour=h, minute=m, second=0, microsecond=0)
+        if first_run <= now:
+            first_run += timedelta(days=1)
 
-        # ── 每 30 分钟刷新股价 ────────────────────────────────────────────
-        s.add_job(self._stock_job, trigger="interval",
-                  minutes=self.settings.stock_interval_minutes,
-                  id="stock_job", max_instances=1, coalesce=True)
+        # ── 启动时立即抓取一次（仅数据，不发报）────────────────────────────
+        s.add_job(self._ingest_only_job, trigger="date",
+                  run_date=now,
+                  id="startup_ingest_job", max_instances=1, coalesce=True,
+                  replace_existing=True)
 
-        # ── 每天 08:00 发日报 ─────────────────────────────────────────────
-        s.add_job(self._daily_report_job, trigger="cron",
-                  hour=self.settings.daily_report_hour,
-                  minute=self.settings.daily_report_minute,
-                  id="daily_report_job", max_instances=1, coalesce=True)
+        # ── 每 3 天 08:00：抓取 + 发三日报 ──────────────────────────────
+        s.add_job(self._triday_job, trigger="interval",
+                  days=3,
+                  start_date=first_run,
+                  id="triday_job", max_instances=1, coalesce=True,
+                  misfire_grace_time=60 * 60, replace_existing=True)
 
         # ── 每周日 08:05 发周报 ───────────────────────────────────────────
         s.add_job(self._weekly_report_job, trigger="cron",
                   day_of_week="sun",
-                  hour=self.settings.daily_report_hour,
-                  minute=self.settings.daily_report_minute + 5,
+                  hour=h,
+                  minute=m + 5,
                   id="weekly_report_job", max_instances=1, coalesce=True)
 
         # ── 每月最后一天 08:10 发月报 ─────────────────────────────────────
         s.add_job(self._monthly_report_job, trigger="cron",
                   day="last",
-                  hour=self.settings.daily_report_hour,
-                  minute=self.settings.daily_report_minute + 10,
+                  hour=h,
+                  minute=m + 10,
                   id="monthly_report_job", max_instances=1, coalesce=True)
 
         s.start()
         logger.info(
-            "Scheduler started. ingest=%dm (runs immediately, then interval) | daily=%02d:%02d | "
+            "Scheduler started. startup_ingest=now | triday=%s (every 3d at %02d:%02d) | "
             "weekly=Sun %02d:%02d | monthly=last-day %02d:%02d (%s)",
-            interval_minutes,
-            self.settings.daily_report_hour, self.settings.daily_report_minute,
-            self.settings.daily_report_hour, self.settings.daily_report_minute + 5,
-            self.settings.daily_report_hour, self.settings.daily_report_minute + 10,
+            first_run.strftime("%Y-%m-%d %H:%M"),
+            h, m, h, m + 5, h, m + 10,
             self.settings.timezone,
         )
 
@@ -81,58 +81,72 @@ class RuntimeScheduler:
             logger.info("Scheduler stopped.")
 
     def status(self) -> dict:
-        ingest_job = self.scheduler.get_job("ingest_job")
-        next_run = ingest_job.next_run_time if ingest_job else None
-        interval_minutes = self.settings.effective_ingest_interval_minutes
+        triday_job = self.scheduler.get_job("triday_job")
+        next_run = triday_job.next_run_time if triday_job else None
         return {
             "running": self.scheduler.running,
-            "ingest_interval_minutes": interval_minutes,
-            "ingest_interval_hours": round(interval_minutes / 60, 2),
-            "next_ingest_run": next_run.isoformat() if next_run else None,
+            "next_triday_run": next_run.isoformat() if next_run else None,
         }
 
     # ── jobs ──────────────────────────────────────────────────────────────────
 
-    def _ingest_job(self) -> None:
+    def _ingest_only_job(self) -> None:
+        """Runs once on startup: fetch latest articles without sending any email."""
         run_started_at = datetime.now(timezone.utc)
         try:
             with SessionLocal() as session:
                 result = run_ingestion(session, self.settings, self.deepseek)
-                logger.info("Ingestion: %s", result.as_dict())
+                logger.info("Startup ingestion: %s", result.as_dict())
         except Exception as exc:
-            logger.exception("Scheduled ingestion job failed.")
+            logger.exception("Startup ingestion failed.")
             try:
                 with SessionLocal() as session:
                     session.add(
                         IngestLog(
                             started_at=run_started_at,
                             finished_at=datetime.now(ZoneInfo(self.settings.timezone)),
-                            fetched=0,
-                            inserted=0,
-                            skipped=0,
-                            errors=1,
-                            status="error",
-                            error_message=str(exc)[:2000],
+                            fetched=0, inserted=0, skipped=0, errors=1,
+                            status="error", error_message=str(exc)[:2000],
                         )
                     )
                     session.commit()
             except Exception:
-                logger.exception("Failed to record scheduled ingestion failure.")
+                logger.exception("Failed to record startup ingestion failure.")
 
-    def _stock_job(self) -> None:
-        with SessionLocal() as session:
-            result = refresh_stock_snapshots(session, self.settings)
-            logger.info("Stock refresh: %s", result)
+    def _triday_job(self) -> None:
+        """Every 3 days at 08:00: ingest fresh articles then send the tri-day report."""
+        run_started_at = datetime.now(timezone.utc)
+        try:
+            with SessionLocal() as session:
+                result = run_ingestion(session, self.settings, self.deepseek)
+                logger.info("Triday ingestion: %s", result.as_dict())
+        except Exception as exc:
+            logger.exception("Triday ingestion failed.")
+            try:
+                with SessionLocal() as session:
+                    session.add(
+                        IngestLog(
+                            started_at=run_started_at,
+                            finished_at=datetime.now(ZoneInfo(self.settings.timezone)),
+                            fetched=0, inserted=0, skipped=0, errors=1,
+                            status="error", error_message=str(exc)[:2000],
+                        )
+                    )
+                    session.commit()
+            except Exception:
+                logger.exception("Failed to record triday ingestion failure.")
 
-    def _daily_report_job(self) -> None:
         if not self.settings.email_enabled:
-            logger.warning("Daily report skipped: email not configured.")
+            logger.warning("Triday report skipped: email not configured.")
             return
-        with SessionLocal() as session:
-            subject, text_body, html_body, stats = build_daily_report(
-                session, self.settings, self.deepseek)
-            send_report_email(session, self.settings, "daily", subject, text_body, html_body)
-            logger.info("Daily report sent: %s", stats)
+        try:
+            with SessionLocal() as session:
+                subject, text_body, html_body, stats = build_triday_report(
+                    session, self.settings, self.deepseek)
+                send_report_email(session, self.settings, "triday", subject, text_body, html_body)
+                logger.info("Triday report sent: %s", stats)
+        except Exception:
+            logger.exception("Triday report failed.")
 
     def _weekly_report_job(self) -> None:
         if not self.settings.email_enabled:

@@ -66,14 +66,14 @@
       <h1>{{ project_name }}</h1>
       <div class="sub">企业白名单: VIS / Infineon / onsemi / ST / Navitas / Wolfspeed / TI / Renesas</div>
       <div class="sub">Timezone: {{ timezone }} | DeepSeek: {{ "ON" if deepseek_enabled else "OFF" }} | Gmail: {{ "ON" if email_enabled else "OFF" }}</div>
-      <div class="sub" style="margin-top:4px;color:#64748b;font-size:0.82em;">🕐 上次抓取: <span id="lastIngestTime">载入中...</span> &nbsp;|&nbsp; 每 <span id="ingestInterval">2</span> 小时自动抓取 &nbsp;|&nbsp; 下次: <span id="nextIngestTime">载入中...</span></div>
+      <div class="sub" style="margin-top:4px;color:#64748b;font-size:0.82em;">🕐 上次抓取: <span id="lastIngestTime">载入中...</span> &nbsp;|&nbsp; 每3天自动抓取并发报 &nbsp;|&nbsp; 下次: <span id="nextIngestTime">载入中...</span></div>
     </div>
     <div class="hero-actions">
       <button id="btnIngest" class="primary">立即抓取</button>
       <button id="btnEnrichContent">补全摘要/正文</button>
       <button id="btnStocks">刷新股票快照</button>
       <button id="btnBackfillStocks">抓取股票折线历史</button>
-      <button id="btnWeekly">发送晨报</button>
+      <button id="btnTriday">发三日报</button>
     </div>
   </section>
 
@@ -626,12 +626,7 @@ async function loadStats(){
   }else{
     el("lastIngestTime").textContent="尚无记录";
   }
-  if(data.ingest_interval_minutes){
-    el("ingestInterval").textContent=formatHours(data.ingest_interval_minutes/60);
-  }else if(data.ingest_interval_hours){
-    el("ingestInterval").textContent=formatHours(data.ingest_interval_hours);
-  }
-  el("nextIngestTime").textContent=data.next_ingest_run ? formatDateTime(new Date(data.next_ingest_run)) : "等待排程";
+  el("nextIngestTime").textContent=data.next_triday_run ? formatDateTime(new Date(data.next_triday_run)) : "等待排程";
 }
 async function loadStocks(){const data=await fetchJson("/api/stocks"); renderStocks(data.items||[]); return data.items||[];}
 async function loadSourceList(){
@@ -856,7 +851,7 @@ el("q").addEventListener("keydown",(event)=>{if(event.key==="Enter") loadArticle
 el("btnIngest").addEventListener("click",()=>runIngestTask());
 el("btnEnrichContent").addEventListener("click",()=>enrichContentTask());
 el("btnStocks").addEventListener("click",()=>runTask("btnStocks","/api/tasks/stocks","股价快照刷新完成"));
-el("btnWeekly").addEventListener("click",()=>runTask("btnWeekly","/api/tasks/send-weekly","晨报发送完成"));
+el("btnTriday").addEventListener("click",()=>runTask("btnTriday","/api/tasks/send-triday","三日报发送完成"));
 el("btnBackfillStocks").addEventListener("click",()=>backfillStockLines());
 el("btnLoadChart").addEventListener("click",()=>loadChart().catch((e)=>setStatus(String(e))));
 el("btnAddSource").addEventListener("click",()=>addSource().catch((e)=>setSourceStatus(String(e))));

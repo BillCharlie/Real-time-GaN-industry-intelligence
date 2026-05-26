@@ -40,6 +40,7 @@ from .pipeline import (
 from .reporter import (
     build_daily_report,
     build_monthly_report,
+    build_triday_report,
     build_weekly_report,
     send_report_email,
     send_weekly_email,
@@ -89,20 +90,12 @@ def _runtime_scheduler_status() -> dict:
     if not runtime_scheduler:
         return {
             "scheduler_running": False,
-            "next_ingest_run": None,
-            "ingest_interval_minutes": settings.effective_ingest_interval_minutes,
-            "ingest_interval_hours": settings.effective_ingest_interval_hours,
+            "next_triday_run": None,
         }
     status = runtime_scheduler.status()
     return {
         "scheduler_running": status.get("running", False),
-        "next_ingest_run": status.get("next_ingest_run"),
-        "ingest_interval_minutes": status.get(
-            "ingest_interval_minutes", settings.effective_ingest_interval_minutes
-        ),
-        "ingest_interval_hours": status.get(
-            "ingest_interval_hours", settings.effective_ingest_interval_hours
-        ),
+        "next_triday_run": status.get("next_triday_run"),
     }
 
 
@@ -609,6 +602,16 @@ async def api_upload_db(token: str = Query(...), file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, f)
     os.replace(tmp, db_path)
     return {"ok": True, "size": os.path.getsize(db_path)}
+
+
+@app.post("/api/tasks/send-triday")
+def api_send_triday():
+    if not settings.email_enabled:
+        raise HTTPException(status_code=400, detail="Email is not configured.")
+    with SessionLocal() as session:
+        subject, text_body, html_body, stats = build_triday_report(session, settings, deepseek_client)
+        send_report_email(session, settings, "triday", subject, text_body, html_body)
+    return {"ok": True, "subject": subject, "stats": stats}
 
 
 @app.post("/api/tasks/send-daily")

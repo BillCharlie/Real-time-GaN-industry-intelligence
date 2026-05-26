@@ -59,6 +59,47 @@ def build_daily_report(
     return subject, text_body, html_body, stats
 
 
+def build_triday_report(
+    session: Session, settings: Settings, deepseek: DeepSeekClient
+) -> Tuple[str, str, str, Dict]:
+    """Past 3 days → tri-day briefing (replaces daily report)."""
+    from datetime import timedelta
+    articles = articles_in_window(session, days_ago_start=3, days_ago_end=0)
+    macro_counter = Counter(a.macro_category for a in articles)
+    tech_counter  = Counter(a.tech_category  for a in articles)
+    grouped       = _group_by_macro(articles)
+
+    now = datetime.now(timezone.utc)
+    date_from = (now - timedelta(days=3)).strftime("%m/%d")
+    date_to = now.strftime("%m/%d")
+    payload = {
+        "report_type": "triday",
+        "period": f"{date_from}–{date_to}",
+        "total": len(articles),
+        "macro_count": dict(macro_counter),
+        "tech_count": dict(tech_counter),
+        "highlights": [
+            {"title": a.title, "source": a.source, "url": a.url,
+             "macro": a.macro_category, "tech": a.tech_category}
+            for a in articles[:20]
+        ],
+    }
+
+    ai_brief   = _safe_ai(deepseek.summarize_daily, payload)
+    date_label = now.strftime("%Y-%m-%d")
+    period_label = f"{date_from}–{date_to}（近3日）"
+    subject    = f"[GaN 三日报] {date_label} 近3日动态"
+    html_body  = _render_html(
+        title=subject, period_label=period_label,
+        ai_brief=ai_brief, macro_counter=macro_counter,
+        tech_counter=tech_counter, grouped=grouped,
+        accent="#2563eb",
+    )
+    text_body = _render_text("三日报", ai_brief, macro_counter, tech_counter, grouped)
+    stats = {"total_articles": len(articles), "report_type": "triday"}
+    return subject, text_body, html_body, stats
+
+
 def build_weekly_report(
     session: Session, settings: Settings, deepseek: DeepSeekClient
 ) -> Tuple[str, str, str, Dict]:

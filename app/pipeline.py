@@ -286,6 +286,10 @@ def backfill_stock_snapshots(
     for ticker in settings.stock_tickers:
         try:
             latest_dt = session.scalar(select(func.max(StockSnapshot.captured_at)).where(StockSnapshot.ticker == ticker))
+            # SQLite returns naive datetimes; treat stored timestamps as UTC so they
+            # can be compared against the tz-aware timestamps coming from yfinance.
+            if latest_dt is not None and latest_dt.tzinfo is None:
+                latest_dt = latest_dt.replace(tzinfo=timezone.utc)
             history = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=False)
             if history is None or history.empty:
                 continue
@@ -393,7 +397,10 @@ def _apply_article_filters(
             stmt = stmt.where(stamp <= to_dt)
     else:
         since = datetime.now(timezone.utc) - timedelta(days=days)
-        stmt = stmt.where(or_(Article.published_at.is_(None), Article.published_at >= since))
+        # Show items published OR collected within the window. Many feeds (academic
+        # papers, Crossref/arXiv) carry an older published_at, so filtering on
+        # published_at alone hides freshly-ingested intelligence from the dashboard.
+        stmt = stmt.where(or_(Article.published_at >= since, Article.created_at >= since))
 
     macro_keys = get_active_category_keys(session, "macro")
     tech_keys = get_active_category_keys(session, "tech")
@@ -431,7 +438,7 @@ def query_category_stats(session: Session, *, days: int = 7) -> Dict[str, Dict[s
     since = datetime.now(timezone.utc) - timedelta(days=days)
     rows = session.execute(
         select(Article.macro_category, Article.tech_category)
-        .where(or_(Article.published_at.is_(None), Article.published_at >= since))
+        .where(or_(Article.published_at >= since, Article.created_at >= since))
         .order_by(desc(Article.created_at))
     ).all()
     macro_counter = Counter(row[0] for row in rows)

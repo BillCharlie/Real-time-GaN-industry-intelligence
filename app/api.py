@@ -327,7 +327,7 @@ def api_stats(days: int = Query(default=7, ge=1, le=90), session: Session = Depe
     total_articles = int(session.query(Article).count())
     window_articles = int(
         session.query(Article)
-        .filter(or_(Article.published_at.is_(None), Article.published_at >= since))
+        .filter(or_(Article.published_at >= since, Article.created_at >= since))
         .count()
     )
     return {

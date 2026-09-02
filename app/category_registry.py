@@ -18,8 +18,8 @@ DEFAULT_MACRO_ROOTS = [
 ]
 
 DEFAULT_TECH_TEMPLATES = [
-    {"base_key": "low_power", "label": "低功率", "sort_order": 10},
-    {"base_key": "high_frequency", "label": "高频", "sort_order": 30},
+    {"base_key": "low_power", "label": "MHZ", "sort_order": 10},
+    {"base_key": "high_frequency", "label": "RF-GHZ", "sort_order": 30},
     {"base_key": "materials", "label": "材料", "sort_order": 40},
     {"base_key": "packaging", "label": "封装", "sort_order": 50},
     {"base_key": "other", "label": "其他", "sort_order": 90},
@@ -453,6 +453,7 @@ def _ensure_default_category_tree(session: Session) -> int:
                     changed += 1
 
     changed += _relocate_flat_high_power_categories(session, macro_roots=macro_roots)
+    changed += _rename_power_labels_to_voltage(session)
     changed += _normalize_article_tech_categories(session)
     changed += _normalize_source_tech_module_keys(session)
 
@@ -506,6 +507,30 @@ def _migrate_legacy_tech_templates(session: Session, *, industry_parent_id: int)
         session.delete(legacy)
         changed += 1
 
+    return changed
+
+
+# Labels the user asked to retire, mapped to what replaces them. Seeding only
+# backfills empty labels (renames are preserved), so existing rows need this
+# one-off pass or they keep the old wording forever.
+#
+# Matching is by label, not by key: the keys drifted from what they display —
+# `*_low_power` renders as 低频, while 低功率 lives on user-created `cat_*` rows.
+_LABEL_RENAMES = {
+    "低频": "MHZ",
+    "高频": "RF-GHZ",
+    "高功率": "高压",
+    "低功率": "低压",
+}
+
+
+def _rename_power_labels_to_voltage(session: Session) -> int:
+    changed = 0
+    for row in session.scalars(select(CategoryField).where(CategoryField.group_type == "tech")):
+        replacement = _LABEL_RENAMES.get((row.label or "").strip())
+        if replacement:
+            row.label = replacement
+            changed += 1
     return changed
 
 

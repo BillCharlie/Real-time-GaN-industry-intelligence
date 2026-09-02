@@ -173,6 +173,12 @@
     /* ── chart ─────────────────────────────────────────────────────────── */
     .chart-wrap{margin-top:12px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:12px}
     .chart-wrap canvas{width:100%;height:auto;display:block}
+    .chart-wrap canvas[hidden]{display:none}
+    /* TradingView's embed autosizes to its parent, so the parent needs a height. */
+    .tv-chart{height:460px;width:100%;border-radius:6px;overflow:hidden}
+    .tv-chart:empty{display:none}
+    .tv-chart iframe{width:100%!important;height:100%!important;border:0;display:block}
+    @media (max-width:700px){.tv-chart{height:340px}}
 
     /* ── source + company lists ────────────────────────────────────────── */
     .source-list,.company-list{display:flex;flex-direction:column;gap:8px;margin-top:4px;max-height:640px;overflow-y:auto;padding-right:2px}
@@ -313,14 +319,24 @@
   <section class="tabpanel" id="pane-stocks" role="tabpanel" hidden>
     <div class="panel">
       <h2>股价走势</h2>
-      <div class="hint">数据源 Yahoo Finance。折线需要先「补历史K线」才有足够点数。</div>
+      <div class="hint">图表由 TradingView 提供。下方快照与周报仍使用本系统自己抓取的 Yahoo Finance 数据。</div>
       <div class="filterbar" style="margin-bottom:0">
         <div class="field"><label for="chartTicker">Ticker</label><select id="chartTicker"></select></div>
-        <div class="field"><label for="chartPoints">点数</label><input id="chartPoints" type="number" min="20" max="2000" value="240"></div>
-        <div class="field"><label>&nbsp;</label><button id="btnLoadChart" class="primary">加载折线图</button></div>
+        <div class="field"><label for="chartInterval">周期</label>
+          <select id="chartInterval">
+            <option value="60">1 小时</option>
+            <option value="D" selected>日线</option>
+            <option value="W">周线</option>
+            <option value="M">月线</option>
+          </select>
+        </div>
+        <div class="field"><label>&nbsp;</label><button id="btnLoadChart" class="primary">重新加载</button></div>
       </div>
       <div class="chart-wrap">
-        <canvas id="stockChart" width="920" height="240"></canvas>
+        <div id="tvChart" class="tv-chart"></div>
+        <!-- Shown only if the TradingView embed cannot load; drawn from our own
+             /api/stocks/{ticker}/series snapshots. -->
+        <canvas id="stockChart" width="920" height="240" hidden></canvas>
         <div id="chartHint" class="muted" style="margin-top:8px"></div>
       </div>
     </div>
@@ -448,9 +464,9 @@ const knownKeyLabels = {
   academic:"学术",
   industry:"产业",
   stock:"股市",
-  low_power:"低功率",
-  high_power:"高功率",
-  high_frequency:"高频",
+  low_power:"MHZ",
+  high_power:"高压",
+  high_frequency:"RF-GHZ",
   materials:"材料",
   packaging:"封装",
   other:"其他",
@@ -570,14 +586,23 @@ function applyCategoryData(data){
   const allMacro=categoryRows.macro, allTech=categoryRows.tech;
   categoryById={};
   [...allMacro,...allTech].forEach((row)=>{categoryById[String(row.id)]=row;});
-  macroMap=Object.fromEntries(allMacro.map((x)=>[x.key,normalizeDisplayLabel(x.label,x.key)||readableKey(x.key)]));
-  techMap=Object.fromEntries(allTech.map((x)=>[x.key,normalizeDisplayLabel(x.label,x.key)||readableKey(x.key)]));
+  // categories_payload nests tech nodes under their macro root, so data.tree.tech
+  // comes back empty and allTech misses them. Seed the label maps from the flat
+  // arrays as well, or every label falls through to readableKey() guessing at the
+  // key — which is how user-created rows showed up as "cat 75993e499e 2".
+  const flatMacro=(data.macro||[]), flatTech=(data.tech||[]);
+  const toLabelPair=(x)=>[x.key,normalizeDisplayLabel(x.label,x.key)||readableKey(x.key)];
+  macroMap=Object.fromEntries([...flatMacro,...allMacro].map(toLabelPair));
+  techMap=Object.fromEntries([...flatTech,...allTech].map(toLabelPair));
   const allTreeRoots=[...categoryTreeRows.macro,...categoryTreeRows.tech];
   const pathInfo=buildPathMaps(allTreeRoots);
   macroPathMap={};
   techPathMap={};
-  allMacro.forEach((row)=>{macroPathMap[row.key]=pathInfo.pathMap[row.key]||displayCategoryName("macro",row.key,{path:false,fallbackLabel:row.label});});
-  allTech.forEach((row)=>{techPathMap[row.key]=pathInfo.pathMap[row.key]||displayCategoryName("tech",row.key,{path:false,fallbackLabel:row.label});});
+  // Same reason as the label maps above: iterate the flat rows too, otherwise the
+  // path map has no entry for a nested tech node and the option text degrades to
+  // a key guess. buildPathMaps already walked them via their macro parent.
+  [...flatMacro,...allMacro].forEach((row)=>{macroPathMap[row.key]=pathInfo.pathMap[row.key]||displayCategoryName("macro",row.key,{path:false,fallbackLabel:row.label});});
+  [...flatTech,...allTech].forEach((row)=>{techPathMap[row.key]=pathInfo.pathMap[row.key]||displayCategoryName("tech",row.key,{path:false,fallbackLabel:row.label});});
 
   const macroRoots=(categoryTreeRows.macro||[]).filter((x)=>x.group_type==="macro");
   const activeMacroRoots=macroRoots.filter((x)=>x.active);
@@ -960,11 +985,84 @@ async function syncCompanySources(){
   setCompanyStatus(`同步完成: created=${data.result.created}, activated=${data.result.activated}, deactivated=${data.result.deactivated}`);
   await Promise.all([loadCompanyWhitelist(),loadSourceList()]);
 }
+// TradingView needs an exchange-qualified symbol; bare tickers resolve to the
+// wrong instrument often enough to be worth pinning. ADRs live on OTC.
+const TV_EXCHANGE={
+  NVTS:"NASDAQ", ON:"NASDAQ", TXN:"NASDAQ", MCHP:"NASDAQ", ADI:"NASDAQ",
+  STM:"NYSE", WOLF:"NYSE",
+  IFNNY:"OTC", RNECY:"OTC",
+};
+function tvSymbol(ticker){
+  const ex=TV_EXCHANGE[String(ticker||"").toUpperCase()];
+  return ex?`${ex}:${ticker}`:ticker;
+}
+function tvTheme(){
+  return (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";
+}
+
+let tvWatchdog=0;
+async function drawLocalFallback(ticker,reason){
+  const canvas=el("stockChart");
+  el("tvChart").innerHTML="";
+  canvas.hidden=false;
+  try{
+    const data=await fetchJson(`/api/stocks/${ticker}/series?points=240`);
+    drawLineChart(data.items||[],ticker);
+    el("chartHint").textContent=`${reason} 已回退到本地快照折线（${(data.items||[]).length} 点）。`;
+  }catch(error){
+    el("chartHint").textContent=`${reason} 本地折线也不可用: ${String(error).slice(0,120)}`;
+  }
+}
+
 async function loadChart(){
-  const ticker=el("chartTicker").value, points=Number(el("chartPoints").value||240);
+  const ticker=el("chartTicker").value;
   if(!ticker) return;
-  const data=await fetchJson(`/api/stocks/${ticker}/series?points=${points}`);
-  drawLineChart(data.items||[],ticker);
+  const interval=(el("chartInterval")||{}).value||"D";
+  const box=el("tvChart"), canvas=el("stockChart"), hint=el("chartHint");
+
+  if(tvWatchdog){clearTimeout(tvWatchdog); tvWatchdog=0;}
+  canvas.hidden=true;
+  box.innerHTML="";
+  hint.textContent=`正在加载 ${tvSymbol(ticker)} …`;
+
+  const holder=document.createElement("div");
+  holder.className="tradingview-widget-container";
+  holder.style.height="100%";
+  const inner=document.createElement("div");
+  inner.className="tradingview-widget-container__widget";
+  inner.style.height="100%";
+  holder.appendChild(inner);
+
+  const script=document.createElement("script");
+  script.type="text/javascript";
+  script.async=true;
+  script.src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+  script.text=JSON.stringify({
+    autosize:true,
+    symbol:tvSymbol(ticker),
+    interval:interval,
+    timezone:"Asia/Taipei",
+    theme:tvTheme(),
+    style:"1",
+    locale:"zh_CN",
+    hide_side_toolbar:true,
+    allow_symbol_change:false,
+    save_image:false,
+    withdateranges:true,
+    support_host:"https://www.tradingview.com",
+  });
+  script.addEventListener("error",()=>drawLocalFallback(ticker,"TradingView 脚本加载失败，"));
+  holder.appendChild(script);
+  box.appendChild(holder);
+
+  // The embed injects an iframe once it boots. No iframe means it was blocked.
+  tvWatchdog=setTimeout(()=>{
+    if(!box.querySelector("iframe")){
+      drawLocalFallback(ticker,"TradingView 未能加载（可能被网络拦截），");
+    }else{
+      hint.textContent=`TradingView · ${tvSymbol(ticker)} · ${interval==="60"?"1 小时":interval==="D"?"日线":interval==="W"?"周线":"月线"}`;
+    }
+  },7000);
 }
 async function runTask(btnId,url,successMsg){
   const btn=el(btnId), oldText=btn.textContent;
@@ -1071,6 +1169,7 @@ el("btnAddCompany").addEventListener("click",()=>addCompany().catch((e)=>setComp
 el("btnSyncCompanies").addEventListener("click",()=>syncCompanySources().catch((e)=>setCompanyStatus(String(e))));
 el("srcMacro").addEventListener("change",()=>loadSourceList().catch((e)=>setSourceStatus(String(e))));
 el("chartTicker").addEventListener("change",()=>loadChart().catch((e)=>setStatus(String(e))));
+el("chartInterval").addEventListener("change",()=>loadChart().catch((e)=>setStatus(String(e))));
 
 async function initialize(){
   try{

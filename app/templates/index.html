@@ -979,8 +979,6 @@ async function deleteCompany(companyId, companyName){
     setCompanyStatus(`删除失败: ${String(error).slice(0,180)}`);
   }
 }
-  await Promise.all([loadCompanyWhitelist(),loadSourceList()]);
-}
 // TradingView needs an exchange-qualified symbol; bare tickers resolve to the
 // wrong instrument often enough to be worth pinning. ADRs live on OTC.
 const TV_EXCHANGE={

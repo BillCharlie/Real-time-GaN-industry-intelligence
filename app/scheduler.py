@@ -44,9 +44,9 @@ class RuntimeScheduler:
                   id="startup_ingest_job", max_instances=1, coalesce=True,
                   replace_existing=True)
 
-        # ── 每 3 天 08:00：只抓取，不发报 ────────────────────────────────
+        # ── 每天 08:00：只抓取，不发报 ──────────────────────────────────
         s.add_job(self._ingest_job, trigger="interval",
-                  days=3,
+                  days=1,
                   start_date=first_run,
                   id="ingest_job", max_instances=1, coalesce=True,
                   misfire_grace_time=60 * 60, replace_existing=True)
@@ -67,7 +67,7 @@ class RuntimeScheduler:
 
         s.start()
         logger.info(
-            "Scheduler started. startup_ingest=now | ingest=%s (every 3d at %02d:%02d) | "
+            "Scheduler started. startup_ingest=now | ingest=%s (daily at %02d:%02d) | "
             "weekly report=Sun %02d:%02d | monthly report=last-day %02d:%02d (%s)",
             first_run.strftime("%Y-%m-%d %H:%M"),
             h, m, h, m + 5, h, m + 10,
@@ -113,7 +113,7 @@ class RuntimeScheduler:
                 logger.exception("Failed to record startup ingestion failure.")
 
     def _ingest_job(self) -> None:
-        """Every 3 days at 08:00: ingest fresh articles. Reports go out weekly/monthly."""
+        """Daily at 08:00: ingest fresh articles. Reports go out weekly/monthly."""
         run_started_at = datetime.now(timezone.utc)
         try:
             with SessionLocal() as session:

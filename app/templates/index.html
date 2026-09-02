@@ -376,7 +376,7 @@
       </div>
       <div class="panel">
         <h2>来源列表</h2>
-        <div class="hint">系统内置来源仅可启用/停用；手动新增的来源可删除。</div>
+        <div class="hint">系统内置来源仅可启用/停用；手动新增的来源可删除。企业来源不在此列出，请到「企业白名单」管理。</div>
         <div id="sourceList" class="source-list"></div>
       </div>
     </div>
@@ -387,13 +387,12 @@
     <div class="cols">
       <div class="panel">
         <h2>新增企业</h2>
-        <div class="hint">每家企业会生成一条按域名限定的 Google News 检索源。</div>
+        <div class="hint">这里是企业来源的唯一入口：每家启用的企业在每次抓取时自动生成一条按域名限定的 Google News 检索源，不需要再去「资讯来源」里单独新增。</div>
         <div class="form-grid">
           <div class="field"><label for="companyName">企业名称</label><input id="companyName" placeholder="Infineon"></div>
           <div class="field"><label for="companyDomain">官网域名</label><input id="companyDomain" placeholder="infineon.com"></div>
           <div class="field full"><label for="companyNote">备注（可选）</label><input id="companyNote" placeholder="IDM / GaN pure-play"></div>
           <div class="field full"><button id="btnAddCompany" class="primary" style="width:100%">新增企业</button></div>
-          <div class="field full"><button id="btnSyncCompanies" style="width:100%">同步白名单到来源库</button></div>
         </div>
         <div id="companyStatus" class="status"></div>
       </div>
@@ -464,7 +463,7 @@ const knownKeyLabels = {
   academic:"学术",
   industry:"产业",
   stock:"股市",
-  low_power:"MHZ",
+  low_power:"Power-MHZ",
   high_power:"高压",
   high_frequency:"RF-GHZ",
   materials:"材料",
@@ -980,9 +979,6 @@ async function deleteCompany(companyId, companyName){
     setCompanyStatus(`删除失败: ${String(error).slice(0,180)}`);
   }
 }
-async function syncCompanySources(){
-  const data=await fetchJson("/api/company-whitelist/sync",{method:"POST"});
-  setCompanyStatus(`同步完成: created=${data.result.created}, activated=${data.result.activated}, deactivated=${data.result.deactivated}`);
   await Promise.all([loadCompanyWhitelist(),loadSourceList()]);
 }
 // TradingView needs an exchange-qualified symbol; bare tickers resolve to the
@@ -1166,7 +1162,6 @@ el("btnBackfillStocks").addEventListener("click",()=>backfillStockLines());
 el("btnLoadChart").addEventListener("click",()=>loadChart().catch((e)=>setStatus(String(e))));
 el("btnAddSource").addEventListener("click",()=>addSource().catch((e)=>setSourceStatus(String(e))));
 el("btnAddCompany").addEventListener("click",()=>addCompany().catch((e)=>setCompanyStatus(String(e))));
-el("btnSyncCompanies").addEventListener("click",()=>syncCompanySources().catch((e)=>setCompanyStatus(String(e))));
 el("srcMacro").addEventListener("change",()=>loadSourceList().catch((e)=>setSourceStatus(String(e))));
 el("chartTicker").addEventListener("change",()=>loadChart().catch((e)=>setStatus(String(e))));
 el("chartInterval").addEventListener("change",()=>loadChart().catch((e)=>setStatus(String(e))));

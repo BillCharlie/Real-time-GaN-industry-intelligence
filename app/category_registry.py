@@ -18,7 +18,7 @@ DEFAULT_MACRO_ROOTS = [
 ]
 
 DEFAULT_TECH_TEMPLATES = [
-    {"base_key": "low_power", "label": "MHZ", "sort_order": 10},
+    {"base_key": "low_power", "label": "Power-MHZ", "sort_order": 10},
     {"base_key": "high_frequency", "label": "RF-GHZ", "sort_order": 30},
     {"base_key": "materials", "label": "材料", "sort_order": 40},
     {"base_key": "packaging", "label": "封装", "sort_order": 50},
@@ -517,7 +517,8 @@ def _migrate_legacy_tech_templates(session: Session, *, industry_parent_id: int)
 # Matching is by label, not by key: the keys drifted from what they display —
 # `*_low_power` renders as 低频, while 低功率 lives on user-created `cat_*` rows.
 _LABEL_RENAMES = {
-    "低频": "MHZ",
+    "低频": "Power-MHZ",
+    "MHZ": "Power-MHZ",  # already shipped as MHZ; carry those rows forward
     "高频": "RF-GHZ",
     "高功率": "高压",
     "低功率": "低压",

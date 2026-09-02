@@ -60,7 +60,7 @@ from .source_registry import (
     list_sources,
     list_company_whitelist,
     source_to_dict,
-    sync_company_whitelist_sources,
+    purge_company_whitelist_sources,
     update_company_whitelist,
     update_source,
     verify_source,
@@ -169,9 +169,10 @@ def on_startup():
         whitelist_seeded = ensure_seed_company_whitelist(session)
         if whitelist_seeded:
             logger.info("Seeded company whitelist rows: %s", whitelist_seeded)
-        synced = sync_company_whitelist_sources(session)
-        if synced["created"] or synced["activated"] or synced["deactivated"]:
-            logger.info("Synced whitelist sources: %s", synced)
+        # Whitelist feeds are derived at ingestion time now; clear the old mirror rows.
+        purged = purge_company_whitelist_sources(session)
+        if purged["removed"]:
+            logger.info("Removed stale whitelist source rows: %s", purged["removed"])
         seeded = ensure_seed_sources(session)
         if seeded:
             logger.info("Seeded default source sites: %s", seeded)
@@ -510,7 +511,7 @@ def api_create_company_whitelist(payload: CompanyWhitelistCreateRequest, session
             active=payload.active,
             note=payload.note,
         )
-        synced = sync_company_whitelist_sources(session)
+        synced = purge_company_whitelist_sources(session)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"ok": True, "item": company_to_dict(row), "synced": synced}
@@ -529,7 +530,7 @@ def api_update_company_whitelist(
             active=payload.active,
             note=payload.note,
         )
-        synced = sync_company_whitelist_sources(session)
+        synced = purge_company_whitelist_sources(session)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"ok": True, "item": company_to_dict(row), "synced": synced}
@@ -546,7 +547,7 @@ def api_delete_company_whitelist(company_id: int, session: Session = Depends(get
 
 @app.post("/api/company-whitelist/sync")
 def api_sync_company_sources(session: Session = Depends(get_db_session)):
-    return {"ok": True, "result": sync_company_whitelist_sources(session)}
+    return {"ok": True, "result": purge_company_whitelist_sources(session)}
 
 
 @app.post("/api/tasks/ingest")

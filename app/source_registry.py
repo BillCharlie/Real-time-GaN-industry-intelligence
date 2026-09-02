@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import parse_qsl, quote_plus, urlencode, urlparse, urlsplit, urlunsplit
 
 import httpx
 from sqlalchemy import and_, asc, desc, or_, select
@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from .category_registry import get_active_category_keys, get_category_labels
 from .models import CompanyWhitelist, SourceSite
-from .sources import SourceDefinition, get_default_sources
+from .sources import CONTACT_EMAIL, SourceDefinition, get_default_sources
 
 VALID_SOURCE_TYPES = {"rss", "arxiv", "crossref", "openalex"}
 VALID_MODULE_TYPES = {"macro", "tech"}
@@ -206,94 +206,49 @@ def delete_company_whitelist(session: Session, company_id: int) -> Dict[str, Any
     deleted = company_to_dict(row)
     session.delete(row)
     session.commit()
-    synced = sync_company_whitelist_sources(session)
-    return {"item": deleted, "synced": synced}
+    return {"item": deleted, "synced": {"removed": 0}}
 
 
-def sync_company_whitelist_sources(session: Session) -> Dict[str, int]:
-    created = 0
-    activated = 0
-    deactivated = 0
-
-    companies = list_company_whitelist(session, include_inactive=True)
-    company_by_name = {company.name: company for company in companies}
-
-    # Retire orphan or stale generated sources first (company deleted / renamed / domain changed).
-    generated_rows = list(
+def purge_company_whitelist_sources(session: Session) -> Dict[str, int]:
+    """Whitelist feeds used to be mirrored into source_sites as
+    "Whitelist Company - X" rows kept in step by a sync pass. That mirror drifted
+    — renaming or re-adding a company left the old row behind, which is how the
+    registry ended up with nine duplicates and a stale VLSI entry — and it made
+    the same list editable from two places. The company whitelist is now the only
+    record; sources_for_ingestion derives the feed at run time. This deletes the
+    leftovers."""
+    rows = list(
         session.scalars(
             select(SourceSite).where(
                 SourceSite.created_by_user.is_(False),
-                SourceSite.source_type == "rss",
-                SourceSite.module_type == "macro",
-                SourceSite.module_key == "industry",
                 SourceSite.name.like("Whitelist Company - %"),
             )
         )
     )
-    for row in generated_rows:
-        company_name = _extract_company_name_from_generated_source(row.name)
-        company = company_by_name.get(company_name)
-        expected_url = build_company_google_news_rss(company.domain) if company else ""
-        should_active = bool(company and company.active and row.url == expected_url)
-        if row.active and not should_active:
-            row.active = False
-            deactivated += 1
+    for row in rows:
+        session.delete(row)
+    if rows:
+        session.commit()
+    return {"removed": len(rows)}
 
-    for company in companies:
-        source_name = f"Whitelist Company - {company.name}"
-        source_url = build_company_google_news_rss(company.domain)
-        rows = list(
-            session.scalars(
-                select(SourceSite).where(
-                    SourceSite.name == source_name,
-                    SourceSite.source_type == "rss",
-                    SourceSite.module_type == "macro",
-                    SourceSite.module_key == "industry",
-                )
+
+def company_whitelist_sources(session: Session) -> List[SourceDefinition]:
+    """One Google News feed per active company, built fresh from the whitelist."""
+    definitions: List[SourceDefinition] = []
+    for company in list_company_whitelist(session, include_inactive=False):
+        domain = _normalize_domain(company.domain)
+        if not domain:
+            continue
+        definitions.append(
+            SourceDefinition(
+                name=f"Whitelist Company - {company.name}"[:160],
+                source_type="rss",
+                url=build_company_google_news_rss(domain),
+                params={"company": company.name, "domain": domain},
+                macro_hint="industry",
             )
         )
-        source = next((x for x in rows if x.url == source_url), None)
-
-        # If company domain changes, retire old generated sources with same company name.
-        for old_row in rows:
-            if old_row.url != source_url and old_row.active:
-                old_row.active = False
-                deactivated += 1
-
-        if company.active:
-            if source is None:
-                verification = verify_source_url(source_url, extra_trusted_domains=[company.domain])
-                session.add(
-                    SourceSite(
-                        name=source_name[:160],
-                        url=source_url[:1500],
-                        source_type="rss",
-                        module_type="macro",
-                        module_key="industry",
-                        params_json=json.dumps({"company": company.name, "domain": company.domain}, ensure_ascii=False),
-                        active=True,
-                        created_by_user=False,
-                        verification_status=verification["verification_status"],
-                        verification_method=verification["verification_method"],
-                        verification_message=verification["verification_message"],
-                        trusted_domain=verification["trusted_domain"],
-                        reachable=verification["reachable"],
-                        last_checked_at=verification["last_checked_at"],
-                    )
-                )
-                created += 1
-            elif not source.active:
-                source.active = True
-                activated += 1
-        else:
-            for old_row in rows:
-                if old_row.active:
-                    old_row.active = False
-                    deactivated += 1
-
-    if created or activated or deactivated:
-        session.commit()
-    return {"created": created, "activated": activated, "deactivated": deactivated}
+    return definitions
 
 
 def ensure_seed_sources(session: Session) -> int:
@@ -362,18 +317,19 @@ def ensure_seed_sources(session: Session) -> int:
     # Seeding used to be insert-only, so a source retired from get_default_sources()
     # lived on in the database and kept costing a fetch every run. Retire the
     # leftovers here. Whitelist-generated rows belong to
-    # sync_company_whitelist_sources, and anything the user added is theirs.
+    # purge_company_whitelist_sources, and anything the user added is theirs.
+    # Deactivating was not enough: the retired rows stayed in the registry list,
+    # so the UI still showed a pile of dead sources that could never be enabled.
     retired = 0
     wanted_names = {source.name[:160] for source in defaults}
     for row in session.scalars(
         select(SourceSite).where(
             SourceSite.created_by_user.is_(False),
-            SourceSite.active.is_(True),
             SourceSite.name.notlike("Whitelist Company - %"),
         )
     ):
         if row.name not in wanted_names:
-            row.active = False
+            session.delete(row)
             retired += 1
 
     if inserted or updated or retired:
@@ -582,7 +538,7 @@ def sources_for_ingestion(session: Session) -> List[SourceDefinition]:
     )
     macro_keys = get_active_category_keys(session, "macro")
     tech_keys = get_active_category_keys(session, "tech")
-    definitions: List[SourceDefinition] = []
+    definitions: List[SourceDefinition] = company_whitelist_sources(session)
     for row in rows:
         params = {}
         if row.params_json:
@@ -683,11 +639,17 @@ def verify_source_url(url: str, extra_trusted_domains: Optional[List[str]] = Non
 
     trusted = _is_trusted_domain(parsed.hostname or "", allowlist)
     try:
-        with httpx.Client(timeout=15, follow_redirects=True) as client:
+        with httpx.Client(timeout=25, follow_redirects=True) as client:
             resp = client.get(
-                url,
+                _probe_url(url),
                 headers={
-                    "User-Agent": "GaN-Intel-Bot/1.0 (+source-verification)",
+                    # Identify properly: Crossref and OpenAlex throttle anonymous
+                    # callers hardest, and an unattributed probe is what made every
+                    # one of those sources read "failed" while ingesting fine.
+                    "User-Agent": (
+                        "GaNIndustryMonitor/1.0 (+source-verification;"
+                        f" mailto:{CONTACT_EMAIL or 'unknown'})"
+                    ),
                     "Accept": "text/html,application/xml,text/xml,application/json,*/*",
                 },
             )
@@ -731,6 +693,19 @@ def verify_source_url(url: str, extra_trusted_domains: Optional[List[str]] = Non
         "reachable": False,
         "last_checked_at": now,
     }
+
+
+def _probe_url(url: str) -> str:
+    """`_src` only exists to keep otherwise-identical API URLs distinct under the
+    (module_type, module_key, url) unique index; the real request never sends it,
+    since httpx replaces the query with the caller's params. Crossref ignores the
+    stray parameter, but OpenAlex answers 400 — which is exactly why six healthy
+    OpenAlex sources were all flagged unreachable."""
+    split = urlsplit(url)
+    if not split.query:
+        return url
+    kept = [(k, v) for k, v in parse_qsl(split.query, keep_blank_values=True) if k != "_src"]
+    return urlunsplit(split._replace(query=urlencode(kept)))
 
 
 def _validate_source_inputs(
@@ -834,13 +809,13 @@ def _module_label(module_type: str, module_key: str) -> str:
         "macro:industry": "企业产业",
         "macro:stock": "股市",
         "macro:academic": "学术",
-        "tech:industry_low_power": "产业 / MHZ",
+        "tech:industry_low_power": "产业 / Power-MHZ",
         "tech:industry_high_power": "产业 / 高压",
         "tech:industry_high_frequency": "产业 / RF-GHZ",
         "tech:industry_materials": "产业 / 材料",
         "tech:industry_packaging": "产业 / 封装",
         "tech:industry_other": "产业 / 其他",
-        "tech:academic_low_power": "学术 / MHZ",
+        "tech:academic_low_power": "学术 / Power-MHZ",
         "tech:academic_high_power": "学术 / 高压",
         "tech:academic_high_frequency": "学术 / RF-GHZ",
         "tech:academic_materials": "学术 / 材料",

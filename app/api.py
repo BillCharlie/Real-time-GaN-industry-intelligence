@@ -190,10 +190,13 @@ def on_shutdown():
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
+    # Modern Starlette signature (request first). The legacy
+    # TemplateResponse(name, {"request": ...}) form was removed in Starlette 1.x,
+    # so the old call only worked because requirements.txt pins fastapi==0.116.1.
     return templates.TemplateResponse(
+        request,
         "index.html",
         {
-            "request": request,
             "project_name": settings.project_name,
             "deepseek_enabled": deepseek_client.enabled,
             "email_enabled": settings.email_enabled,

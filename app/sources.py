@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, Dict, List, Tuple
 from urllib.parse import quote_plus, urlparse
@@ -9,6 +10,19 @@ from urllib.parse import quote_plus, urlparse
 import feedparser
 import httpx
 from bs4 import BeautifulSoup
+
+# Crossref and OpenAlex both run a "polite pool": callers who identify themselves
+# get a dedicated, far more reliable slice of capacity. Anonymous traffic is the
+# first to be throttled, which is exactly how these sources end up returning
+# nothing on a busy host.
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "").strip() or os.getenv("GMAIL_USER", "").strip()
+_POLITE_HEADERS = {
+    "User-Agent": (
+        "GaNIndustryMonitor/1.0 (+https://realtimegan.up.railway.app;"
+        f" mailto:{CONTACT_EMAIL or 'unknown'})"
+    ),
+    "Accept": "application/json",
+}
 
 
 @dataclass(frozen=True)
@@ -38,7 +52,17 @@ def _google_news_search_url(query: str) -> str:
 
 
 def get_default_sources() -> List[SourceDefinition]:
+    """Every source here is abstract-level only: RSS summaries, Crossref/OpenAlex
+    abstract fields, arXiv summaries. Nothing fetches a PDF or a full text body.
+
+    Journal-wide table-of-contents feeds were dropped. GaN is a sliver of what
+    Nature Electronics or Applied Surface Science publish, so the relevance filter
+    discarded ~100% of what they returned while they still cost a fetch every run.
+    Query-shaped sources (arXiv / Crossref / OpenAlex) are GaN-specific at the
+    source, so what they return is already on topic.
+    """
     return [
+        # ── Industry news (Google News queries) ──────────────────────────────
         SourceDefinition(
             name="Google News - GaN Semiconductor",
             source_type="rss",
@@ -56,6 +80,44 @@ def get_default_sources() -> List[SourceDefinition]:
             macro_hint="stock",
         ),
         SourceDefinition(
+            name="Google News - GaN Fast Charger (Low Power)",
+            source_type="rss",
+            url=_google_news_search_url(
+                '"GaN" fast charger USB-C power adapter -generative -adversarial when:14d'
+            ),
+            macro_hint="industry",
+            tech_hint="low_power",
+        ),
+        SourceDefinition(
+            name="Google News - GaN EV Inverter (High Power)",
+            source_type="rss",
+            url=_google_news_search_url(
+                '"GaN" EV inverter traction "power semiconductor" -generative -adversarial when:30d'
+            ),
+            macro_hint="industry",
+            tech_hint="high_power",
+        ),
+        SourceDefinition(
+            name="Google News - GaN Foundry & Capacity",
+            source_type="rss",
+            url=_google_news_search_url(
+                '"GaN" (foundry OR fab OR "200mm" OR "8-inch" OR capacity) semiconductor when:30d'
+            ),
+            macro_hint="industry",
+            tech_hint="materials",
+        ),
+        SourceDefinition(
+            name="Google News - GaN Data Center Power",
+            source_type="rss",
+            url=_google_news_search_url(
+                '"GaN" ("data center" OR "AI server" OR PSU) power supply when:30d'
+            ),
+            macro_hint="industry",
+            tech_hint="high_power",
+        ),
+
+        # ── arXiv (full abstracts, free, GaN-specific queries) ───────────────
+        SourceDefinition(
             name="arXiv - GaN Power/High Frequency",
             source_type="arxiv",
             url=(
@@ -67,82 +129,118 @@ def get_default_sources() -> List[SourceDefinition]:
             macro_hint="academic",
             tech_hint="high_frequency",
         ),
-        # ── Crossref API（每条用 ?_src= 区分 URL，绕过 DB 唯一约束；Crossref 忽略未知参数）──
+        SourceDefinition(
+            name="arXiv - GaN HEMT Devices",
+            source_type="arxiv",
+            url=(
+                "http://export.arxiv.org/api/query?"
+                "search_query=all:(GaN+OR+gallium+nitride)+AND+(HEMT+OR+transistor)"
+                "&sortBy=submittedDate&sortOrder=descending"
+            ),
+            params={"max_results": 30},
+            macro_hint="academic",
+            tech_hint="high_frequency",
+        ),
+        SourceDefinition(
+            name="arXiv - GaN Epitaxy & Materials",
+            source_type="arxiv",
+            url=(
+                "http://export.arxiv.org/api/query?"
+                "search_query=all:(gallium+nitride+OR+GaN)+AND+(epitaxy+OR+substrate+OR+MOCVD)"
+                "&sortBy=submittedDate&sortOrder=descending"
+            ),
+            params={"max_results": 30},
+            macro_hint="academic",
+            tech_hint="materials",
+        ),
+
+        # ── OpenAlex: abstracts for publishers Crossref has none for (IEEE) ──
+        SourceDefinition(
+            name="OpenAlex - GaN Power Devices",
+            source_type="openalex",
+            url="https://api.openalex.org/works?_src=gan_power",
+            params={"query": "gallium nitride power device", "lookback_days": 120},
+            macro_hint="academic",
+            tech_hint="high_power",
+        ),
+        SourceDefinition(
+            name="OpenAlex - GaN HEMT",
+            source_type="openalex",
+            url="https://api.openalex.org/works?_src=gan_hemt",
+            params={"query": "GaN HEMT transistor", "lookback_days": 120},
+            macro_hint="academic",
+            tech_hint="high_frequency",
+        ),
+        SourceDefinition(
+            name="OpenAlex - GaN Epitaxy & Substrate",
+            source_type="openalex",
+            url="https://api.openalex.org/works?_src=gan_epi",
+            params={"query": "gallium nitride epitaxy substrate", "lookback_days": 150},
+            macro_hint="academic",
+            tech_hint="materials",
+        ),
+        SourceDefinition(
+            name="OpenAlex - GaN Reliability & Packaging",
+            source_type="openalex",
+            url="https://api.openalex.org/works?_src=gan_rel",
+            params={"query": "GaN reliability degradation packaging", "lookback_days": 150},
+            macro_hint="academic",
+            tech_hint="packaging",
+        ),
+        SourceDefinition(
+            name="OpenAlex - IEEE Electron Device Letters (GaN)",
+            source_type="openalex",
+            url="https://api.openalex.org/works?_src=ieee_edl",
+            params={
+                "query": "gallium nitride",
+                "venue_issn": "0741-3106",
+                "lookback_days": 240,
+            },
+            macro_hint="academic",
+            tech_hint="high_frequency",
+        ),
+        SourceDefinition(
+            name="OpenAlex - IEEE Trans. Power Electronics (GaN)",
+            source_type="openalex",
+            url="https://api.openalex.org/works?_src=ieee_tpel",
+            params={
+                "query": "GaN converter",
+                "venue_issn": "0885-8993",
+                "lookback_days": 240,
+            },
+            macro_hint="academic",
+            tech_hint="high_power",
+        ),
+
+        # ── Crossref, kept where the publisher actually deposits abstracts ───
+        SourceDefinition(
+            name="Crossref - GaN Power Electronics",
+            source_type="crossref",
+            url="https://api.crossref.org/works?_src=gan_power",
+            params={"query": "gallium nitride power electronics", "lookback_days": 120},
+            macro_hint="academic",
+            tech_hint="high_power",
+        ),
         SourceDefinition(
             name="Crossref - Nature",
             source_type="crossref",
             url="https://api.crossref.org/works?_src=nature",
-            params={"journal": "Nature", "query": "gallium nitride power electronics"},
+            params={
+                "journal": "Nature",
+                "query": "gallium nitride power electronics",
+                "lookback_days": 240,
+            },
             macro_hint="academic",
         ),
         SourceDefinition(
-            name="Crossref - APL",
+            name="Crossref - Applied Physics Letters",
             source_type="crossref",
-            url="https://api.crossref.org/works?_src=apl",
-            params={"journal": "Applied Physics Letters", "query": "gallium nitride device"},
-            macro_hint="academic",
-        ),
-        SourceDefinition(
-            name="Crossref - IEEE TPEL",
-            source_type="crossref",
-            url="https://api.crossref.org/works?_src=ieee_tpel",
-            params={"journal": "IEEE Transactions on Power Electronics", "query": "GaN converter"},
-            macro_hint="academic",
-            tech_hint="high_power",
-        ),
-        SourceDefinition(
-            name="Crossref - IEEE EDL",
-            source_type="crossref",
-            url="https://api.crossref.org/works?_src=ieee_edl",
-            params={"journal": "IEEE Electron Device Letters", "query": "GaN HEMT"},
-            macro_hint="academic",
-            tech_hint="high_frequency",
-        ),
-        SourceDefinition(
-            name="Crossref - IEEE TED",
-            source_type="crossref",
-            url="https://api.crossref.org/works?_src=ieee_ted",
-            params={"journal": "IEEE Transactions on Electron Devices", "query": "gallium nitride GaN"},
-            macro_hint="academic",
-            tech_hint="high_frequency",
-        ),
-        SourceDefinition(
-            name="Crossref - IEEE Access GaN",
-            source_type="crossref",
-            url="https://api.crossref.org/works?_src=ieee_access",
-            params={"journal": "IEEE Access", "query": "GaN power device"},
-            macro_hint="academic",
-            tech_hint="high_power",
-        ),
-        SourceDefinition(
-            name="Crossref - Nature Electronics",
-            source_type="crossref",
-            url="https://api.crossref.org/works?_src=natelectron",
-            params={"journal": "Nature Electronics", "query": "gallium nitride GaN"},
-            macro_hint="academic",
-            tech_hint="high_frequency",
-        ),
-        SourceDefinition(
-            name="Crossref - Nature Energy GaN",
-            source_type="crossref",
-            url="https://api.crossref.org/works?_src=natenergy",
-            params={"journal": "Nature Energy", "query": "GaN power conversion"},
-            macro_hint="academic",
-            tech_hint="high_power",
-        ),
-        SourceDefinition(
-            name="Crossref - ScienceDirect SSE",
-            source_type="crossref",
-            url="https://api.crossref.org/works?_src=sse",
-            params={"journal": "Solid-State Electronics", "query": "gallium nitride GaN HEMT"},
-            macro_hint="academic",
-            tech_hint="high_frequency",
-        ),
-        SourceDefinition(
-            name="Crossref - ScienceDirect MSE-B",
-            source_type="crossref",
-            url="https://api.crossref.org/works?_src=mseb",
-            params={"journal": "Materials Science and Engineering B", "query": "GaN epitaxy"},
+            url="https://api.crossref.org/works?_src=apl2",
+            params={
+                "journal": "Applied Physics Letters",
+                "query": "gallium nitride device",
+                "lookback_days": 240,
+            },
             macro_hint="academic",
             tech_hint="materials",
         ),
@@ -150,11 +248,16 @@ def get_default_sources() -> List[SourceDefinition]:
             name="Crossref - Journal of Crystal Growth",
             source_type="crossref",
             url="https://api.crossref.org/works?_src=jcg",
-            params={"journal": "Journal of Crystal Growth", "query": "GaN gallium nitride epitaxy"},
+            params={
+                "journal": "Journal of Crystal Growth",
+                "query": "GaN gallium nitride epitaxy",
+                "lookback_days": 240,
+            },
             macro_hint="academic",
             tech_hint="materials",
         ),
-        # ── IEEE Xplore RSS ──────────────────────────────────────────────────────
+
+        # ── Publisher RSS that empirically returns GaN hits ──────────────────
         SourceDefinition(
             name="IEEE TPEL - Transactions on Power Electronics",
             source_type="rss",
@@ -180,40 +283,6 @@ def get_default_sources() -> List[SourceDefinition]:
             skip_page_preview=True,
         ),
         SourceDefinition(
-            name="IEEE JEDS - Journal of Electron Devices Society",
-            source_type="rss",
-            url="https://ieeexplore.ieee.org/rss/TOC6882348.XML",
-            macro_hint="academic",
-            tech_hint="high_frequency",
-            skip_page_preview=True,
-        ),
-        # ── Nature RSS ───────────────────────────────────────────────────────────
-        SourceDefinition(
-            name="Nature Electronics",
-            source_type="rss",
-            url="https://www.nature.com/natelectron.rss",
-            macro_hint="academic",
-            tech_hint="high_frequency",
-            skip_page_preview=True,
-        ),
-        SourceDefinition(
-            name="Nature Energy",
-            source_type="rss",
-            url="https://www.nature.com/nenergy.rss",
-            macro_hint="academic",
-            tech_hint="high_power",
-            skip_page_preview=True,
-        ),
-        SourceDefinition(
-            name="Nature Materials",
-            source_type="rss",
-            url="https://www.nature.com/nmat.rss",
-            macro_hint="academic",
-            tech_hint="materials",
-            skip_page_preview=True,
-        ),
-        # ── ScienceDirect RSS (Elsevier) ─────────────────────────────────────────
-        SourceDefinition(
             name="ScienceDirect - Solid-State Electronics",
             source_type="rss",
             url="https://rss.sciencedirect.com/publication/science/00381101",
@@ -229,33 +298,6 @@ def get_default_sources() -> List[SourceDefinition]:
             tech_hint="materials",
             skip_page_preview=True,
         ),
-        SourceDefinition(
-            name="ScienceDirect - Applied Surface Science",
-            source_type="rss",
-            url="https://rss.sciencedirect.com/publication/science/01694332",
-            macro_hint="academic",
-            tech_hint="materials",
-            skip_page_preview=True,
-        ),
-        # ── Google News - GaN Fast Charger (Low Power) ───────────────────────────
-        SourceDefinition(
-            name="Google News - GaN Fast Charger (Low Power)",
-            source_type="rss",
-            url=_google_news_search_url(
-                '"GaN" fast charger USB-C power adapter -generative -adversarial when:14d'
-            ),
-            macro_hint="industry",
-            tech_hint="low_power",
-        ),
-        SourceDefinition(
-            name="Google News - GaN EV Inverter (High Power)",
-            source_type="rss",
-            url=_google_news_search_url(
-                '"GaN" EV inverter traction "power semiconductor" -generative -adversarial when:30d'
-            ),
-            macro_hint="industry",
-            tech_hint="high_power",
-        ),
     ]
 
 
@@ -264,6 +306,8 @@ def fetch_from_source(source: SourceDefinition, max_items: int = 20) -> List[Raw
         return _fetch_rss_like(source, max_items=max_items)
     if source.source_type == "crossref":
         return _fetch_crossref(source, max_items=max_items)
+    if source.source_type == "openalex":
+        return _fetch_openalex(source, max_items=max_items)
     return []
 
 
@@ -307,14 +351,25 @@ def _fetch_rss_like(source: SourceDefinition, max_items: int) -> List[RawArticle
 
 
 def _fetch_crossref(source: SourceDefinition, max_items: int) -> List[RawArticle]:
+    # query.bibliographic matches title/abstract far more tightly than the generic
+    # `query`, which used to drag in papers that only mention GaN in a reference.
     params = {
-        "query": source.params.get("query", "gallium nitride"),
-        "query.container-title": source.params.get("journal", ""),
+        "query.bibliographic": source.params.get("query", "gallium nitride"),
         "rows": max_items,
         "sort": "published",
         "order": "desc",
+        # Crossref's polite pool. Anonymous callers share a throttled pool and are
+        # the first to be shed under load, which is what starves these sources.
+        "mailto": CONTACT_EMAIL,
     }
-    with httpx.Client(timeout=20) as client:
+    journal = source.params.get("journal")
+    if journal:
+        params["query.container-title"] = journal
+    lookback_days = int(source.params.get("lookback_days", 180))
+    since = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+    params["filter"] = "from-pub-date:" + since.strftime("%Y-%m-%d")
+
+    with httpx.Client(timeout=30, headers=_POLITE_HEADERS, follow_redirects=True) as client:
         response = client.get(source.url, params=params)
         response.raise_for_status()
         payload = response.json()
@@ -341,6 +396,75 @@ def _fetch_crossref(source: SourceDefinition, max_items: int) -> List[RawArticle
             )
         )
     return items
+
+
+def _fetch_openalex(source: SourceDefinition, max_items: int) -> List[RawArticle]:
+    """OpenAlex indexes abstracts for far more publishers than Crossref does —
+    notably IEEE, which deposits titles to Crossref but no abstract text. Only the
+    abstract is pulled here; no full text or PDF is ever requested."""
+    filters = ["type:article"]
+    lookback_days = int(source.params.get("lookback_days", 120))
+    since = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+    filters.append("from_publication_date:" + since.strftime("%Y-%m-%d"))
+    venue = source.params.get("venue_issn")
+    if venue:
+        filters.append("primary_location.source.issn:" + venue)
+
+    params = {
+        "search": source.params.get("query", "gallium nitride"),
+        "filter": ",".join(filters),
+        "sort": "publication_date:desc",
+        "per-page": min(int(max_items), 50),
+        "mailto": CONTACT_EMAIL,
+    }
+    with httpx.Client(timeout=30, headers=_POLITE_HEADERS, follow_redirects=True) as client:
+        response = client.get(source.url, params=params)
+        response.raise_for_status()
+        payload = response.json()
+
+    items: List[RawArticle] = []
+    for row in payload.get("results", []):
+        title = _clean_text(row.get("display_name") or "")
+        doi = row.get("doi") or ""
+        link = doi or (row.get("id") or "")
+        if not title or not link:
+            continue
+        summary = _openalex_abstract(row.get("abstract_inverted_index"))
+        items.append(
+            RawArticle(
+                source=source.name,
+                source_type=source.source_type,
+                title=title,
+                url=link,
+                published_at=_parse_openalex_date(row.get("publication_date")),
+                summary=_truncate_text(summary, 600) if summary else None,
+            )
+        )
+    return items
+
+
+def _openalex_abstract(inverted_index: dict | None) -> str | None:
+    """OpenAlex ships abstracts as {word: [positions]} for licensing reasons;
+    rebuild the running text from it."""
+    if not inverted_index:
+        return None
+    positions: List[Tuple[int, str]] = []
+    for word, slots in inverted_index.items():
+        for slot in slots or []:
+            positions.append((int(slot), word))
+    if not positions:
+        return None
+    positions.sort(key=lambda pair: pair[0])
+    return _clean_text(" ".join(word for _, word in positions)) or None
+
+
+def _parse_openalex_date(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
 
 
 def _clean_text(raw: str) -> str:

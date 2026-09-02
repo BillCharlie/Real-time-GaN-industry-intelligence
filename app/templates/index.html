@@ -5,183 +5,400 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{{ project_name }}</title>
   <style>
-    :root{--bg:#f5f8fa;--panel:#fff;--text:#0f2331;--muted:#5f7280;--line:#dbe6ee;--pri:#176087;--pri2:#2d89b2}
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
-    .wrap{max-width:1520px;margin:0 auto;padding:16px}
-    .hero{background:linear-gradient(135deg,#0d3850,#176087 45%,#1f6b90);color:#fff;border-radius:14px;padding:16px;display:flex;justify-content:space-between;gap:10px;align-items:center}
-    .hero h1{margin:0;font-size:26px}.sub{margin-top:4px;opacity:.9;font-size:13px}.hero-actions{display:flex;gap:8px;flex-wrap:wrap}
-    .stats-row{margin-top:12px}
-    .layout{margin-top:12px;display:grid;grid-template-columns:minmax(420px,540px) 1fr;gap:12px;align-items:start}
-    aside{min-width:0}
-    main{min-width:0}
-    .sidebar-shell{display:flex;flex-direction:column;gap:8px;overflow:hidden}
-    .sidebar-nav{display:flex;justify-content:flex-end;gap:6px}
-    .sidebar-pages{display:flex;gap:0;width:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-snap-stop:always;scrollbar-width:none;-ms-overflow-style:none}
-    .sidebar-pages::-webkit-scrollbar{display:none}
-    .sidebar-pages .panel{margin-top:0 !important}
-    .side-card{flex:0 0 100%;scroll-snap-align:start;min-width:0}
-    .main-shell{display:flex;flex-direction:column;gap:8px;overflow:hidden}
-    .main-nav{display:flex;justify-content:flex-end;gap:6px}
-    .main-pages{display:flex;gap:0;width:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-snap-stop:always;scrollbar-width:none;-ms-overflow-style:none}
-    .main-pages::-webkit-scrollbar{display:none}
-    .main-pages .panel{margin-top:0 !important}
-    .main-card{flex:0 0 100%;scroll-snap-align:start;min-width:0}
-    .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
-    .panel h2{margin:0 0 10px;font-size:16px}
-    .form-row{margin-bottom:8px}.form-row-inline{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
-    input,select{width:100%;border:1px solid #cfdde8;border-radius:8px;padding:8px 10px;background:#fff}
-    button{border:1px solid var(--line);border-radius:9px;padding:8px 12px;background:#fff;color:var(--text);font-weight:600;cursor:pointer}
-    button.primary{background:linear-gradient(90deg,var(--pri),var(--pri2));color:#fff;border-color:transparent}
-    button.secondary{background:#edf6fb;color:#0b3955;border-color:#c4dced} button.mini{padding:6px 10px;font-size:12px}
-    .status{margin-top:8px;min-height:18px;color:#0b3955;font-size:12px}.muted{color:var(--muted);font-size:12px}
-    .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
-    .stat-box{background:#f6fafc;border:1px solid #d7e5ef;border-radius:10px;padding:8px;text-align:center}.stat-box strong{display:block;font-size:24px;color:#0c4c6d}
-    .bar-line{display:grid;grid-template-columns:140px 1fr 44px;gap:7px;align-items:center;font-size:12px}.bar-box{height:12px;border-radius:99px;background:#eef4f8;overflow:hidden}.bar{height:100%;border-radius:inherit;min-width:2px}
-    .articles{display:flex;flex-direction:column;gap:10px;max-height:860px;overflow:auto;padding-right:4px}
-    .article{border:1px solid #dbe6ee;border-radius:10px;padding:10px;background:#fff}.article .title{color:#0b344f;text-decoration:none;font-weight:700;font-size:15px}.article .meta{margin-top:6px;color:#5f7280;font-size:12px;display:flex;gap:8px;flex-wrap:wrap}
-    .summary,.content-preview,.analysis{margin-top:8px;font-size:13px;line-height:1.5;white-space:pre-wrap}.content-preview,.analysis{font-size:12px;border:1px solid #dfe8ee;border-radius:8px;padding:8px;background:#f8fbfc}
-    .source-list,.company-list,.category-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}.source-item,.company-item,.category-item{border:1px solid #dbe6ee;border-radius:10px;padding:10px;background:#fff}
-    .tree-root{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-    .tree-group-header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px}
-    .tree-group-title{font-size:12px;color:var(--muted);font-weight:700}
-    .tree-node{display:flex;align-items:center;gap:8px;border:1px solid #dbe6ee;border-radius:10px;padding:8px;background:#fff}
-    .tree-name{font-size:13px;font-weight:700;color:#16384c;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .tree-actions{display:flex;gap:6px;flex-wrap:wrap}
-    .tree-children{display:flex;flex-direction:column;gap:8px;margin-top:6px;border-left:2px solid #e3edf4;padding-left:12px}
+    /* ── design tokens ─────────────────────────────────────────────────── */
+    :root{
+      --bg:#f1f5f9; --panel:#fff; --panel-2:#f8fafc;
+      --text:#0f172a; --text-2:#475569; --muted:#94a3b8;
+      --line:#e2e8f0; --line-2:#cbd5e1;
+      --pri:#1d4ed8; --pri-soft:#eff6ff; --pri-line:#bfdbfe;
+      --ok:#059669; --ok-soft:#ecfdf5;
+      --warn:#b45309; --warn-soft:#fffbeb;
+      --err:#dc2626; --err-soft:#fef2f2;
+      --radius:10px;
+      --shadow:0 1px 3px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04);
+    }
+    @media (prefers-color-scheme:dark){
+      :root{
+        --bg:#0b1220; --panel:#111a2b; --panel-2:#0d1524;
+        --text:#e2e8f0; --text-2:#94a3b8; --muted:#64748b;
+        --line:#1e293b; --line-2:#334155;
+        --pri:#60a5fa; --pri-soft:#172554; --pri-line:#1e3a8a;
+        --ok:#34d399; --ok-soft:#064e3b;
+        --warn:#fbbf24; --warn-soft:#451a03;
+        --err:#f87171; --err-soft:#450a0a;
+        --shadow:0 1px 3px rgba(0,0,0,.4);
+      }
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{
+      background:var(--bg); color:var(--text);
+      font-family:"Inter","Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+      font-size:14px; line-height:1.55; -webkit-font-smoothing:antialiased;
+    }
+    a{color:var(--pri);text-decoration:none}
+    a:hover{text-decoration:underline}
+    ::-webkit-scrollbar{width:10px;height:10px}
+    ::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:6px;border:2px solid var(--bg)}
+
+    /* ── app shell ─────────────────────────────────────────────────────── */
+    .wrap{max-width:1400px;margin:0 auto;padding:0 20px 40px}
+    .topbar{
+      position:sticky;top:0;z-index:50;
+      background:var(--panel);border-bottom:1px solid var(--line);
+      margin:0 -20px 18px;padding:12px 20px;
+      display:flex;align-items:center;gap:16px;flex-wrap:wrap;box-shadow:var(--shadow);
+    }
+    .brand{display:flex;flex-direction:column;gap:3px;margin-right:auto;min-width:0}
+    .brand h1{margin:0;font-size:1rem;font-weight:700;letter-spacing:-.01em}
+    .brand .meta{font-size:.75rem;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .brand .meta b{color:var(--text-2);font-weight:600}
+    .pill{
+      display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;
+      font-size:.72rem;font-weight:600;background:var(--panel-2);
+      border:1px solid var(--line);color:var(--text-2);
+    }
+    .pill.on{background:var(--ok-soft);border-color:transparent;color:var(--ok)}
+    .pill.off{background:var(--err-soft);border-color:transparent;color:var(--err)}
+    .pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+    /* ── buttons ───────────────────────────────────────────────────────── */
+    button{
+      font:inherit;font-size:.82rem;font-weight:600;cursor:pointer;
+      border:1px solid var(--line-2);background:var(--panel);color:var(--text-2);
+      padding:7px 13px;border-radius:8px;transition:.14s;
+      display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+    }
+    button:hover:not(:disabled){border-color:var(--pri);color:var(--pri);background:var(--pri-soft)}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    button.primary{background:var(--pri);border-color:var(--pri);color:#fff}
+    button.primary:hover:not(:disabled){filter:brightness(1.12);color:#fff;background:var(--pri)}
+    button.secondary{background:var(--panel-2)}
+    button.mini{padding:4px 9px;font-size:.74rem;border-radius:6px}
+    .toolbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+
+    /* ── KPI strip ─────────────────────────────────────────────────────── */
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+    .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--shadow)}
+    .kpi .label{font-size:.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+    .kpi .value{font-size:1.55rem;font-weight:700;line-height:1.2;margin-top:3px;font-variant-numeric:tabular-nums}
+    .kpi .sub{font-size:.74rem;color:var(--text-2);margin-top:2px}
+
+    /* ── tabs ──────────────────────────────────────────────────────────── */
+    .tabs{display:flex;gap:2px;border-bottom:2px solid var(--line);margin-bottom:18px;overflow-x:auto;scrollbar-width:none}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab{
+      appearance:none;background:none;border:none;border-radius:0;
+      padding:10px 16px;font-size:.87rem;font-weight:600;color:var(--muted);
+      border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;
+    }
+    .tab:hover{color:var(--text);background:none;border-color:transparent;border-bottom-color:var(--line-2)}
+    .tab[aria-selected="true"]{color:var(--pri);border-bottom-color:var(--pri);background:none}
+    .tab .badge{
+      display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;
+      background:var(--panel-2);border:1px solid var(--line);font-size:.7rem;font-weight:700;color:var(--text-2);
+    }
+    .tabpanel[hidden]{display:none}
+
+    /* ── panels ────────────────────────────────────────────────────────── */
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+    .panel + .panel{margin-top:14px}
+    .panel h2{margin:0 0 3px;font-size:.93rem;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .panel .hint{font-size:.78rem;color:var(--muted);margin-bottom:12px}
+    .cols{display:grid;gap:14px;grid-template-columns:minmax(0,340px) minmax(0,1fr);align-items:start}
+    @media (max-width:900px){.cols{grid-template-columns:1fr}}
+
+    /* ── forms ─────────────────────────────────────────────────────────── */
+    .field{display:flex;flex-direction:column;gap:4px;min-width:0}
+    .field label{font-size:.74rem;font-weight:600;color:var(--text-2)}
+    input,select,textarea{
+      font:inherit;font-size:.83rem;padding:7px 10px;border-radius:7px;
+      border:1px solid var(--line-2);background:var(--panel);color:var(--text);
+      width:100%;min-width:0;transition:.14s;
+    }
+    input:focus,select:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-soft)}
+    .filterbar{
+      display:grid;gap:10px;align-items:end;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+      padding:13px 15px;background:var(--panel-2);border:1px solid var(--line);
+      border-radius:var(--radius);margin-bottom:14px;
+    }
+    .filterbar .wide{grid-column:span 2}
+    @media (max-width:700px){.filterbar .wide{grid-column:span 1}}
+    .form-grid{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+    .form-grid .full{grid-column:1/-1}
+
+    /* ── status / misc ─────────────────────────────────────────────────── */
+    .status{
+      font-size:.78rem;color:var(--text-2);margin-top:9px;padding:6px 10px;
+      border-radius:6px;background:var(--panel-2);border-left:3px solid var(--line-2);word-break:break-word;
+    }
+    .status:empty{display:none}
+    .muted{color:var(--muted);font-size:.79rem}
+
+    /* ── distribution bars (renderBars) ────────────────────────────────── */
+    .bar-line{display:grid;grid-template-columns:minmax(92px,auto) 1fr auto;gap:10px;align-items:center;font-size:.79rem;margin-bottom:8px}
+    .bar-line > div:first-child{color:var(--text-2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .bar-box{height:8px;background:var(--panel-2);border-radius:5px;overflow:hidden;border:1px solid var(--line)}
+    .bar{height:100%;border-radius:5px;transition:width .35s ease;min-width:2px}
+    .bar-line > div:last-child{font-variant-numeric:tabular-nums;color:var(--text);font-weight:700;min-width:28px;text-align:right}
+
+    /* ── article feed (renderArticles) ─────────────────────────────────── */
+    .article{padding:14px 2px;border-bottom:1px solid var(--line)}
+    .article:last-child{border-bottom:none}
+    .article .title{font-size:.93rem;font-weight:600;line-height:1.45;display:block;margin-bottom:6px;color:var(--text)}
+    .article .title:hover{color:var(--pri);text-decoration:none}
+    .article .meta{display:flex;gap:14px;flex-wrap:wrap;font-size:.73rem;color:var(--muted);margin-bottom:7px}
+    .article .summary{font-size:.83rem;color:var(--text-2);line-height:1.65}
+    .article .content-preview{
+      font-size:.79rem;color:var(--muted);line-height:1.6;margin-top:8px;
+      padding-left:11px;border-left:2px solid var(--line);
+    }
+    .article .analysis{
+      font-size:.81rem;line-height:1.65;margin-top:9px;padding:9px 12px;
+      background:var(--pri-soft);border-left:3px solid var(--pri);border-radius:0 6px 6px 0;color:var(--text-2);
+    }
+
+    /* ── tables ────────────────────────────────────────────────────────── */
+    .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    table{width:100%;border-collapse:collapse;font-size:.82rem}
+    th{
+      text-align:left;padding:8px 10px;font-weight:700;font-size:.72rem;color:var(--muted);
+      text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--line);white-space:nowrap;
+    }
+    td{padding:9px 10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+    tr:last-child td{border-bottom:none}
+    .up{color:var(--ok);font-weight:700}
+    .dn{color:var(--err);font-weight:700}
+
+    /* ── chart ─────────────────────────────────────────────────────────── */
+    .chart-wrap{margin-top:12px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:12px}
+    .chart-wrap canvas{width:100%;height:auto;display:block}
+
+    /* ── source + company lists ────────────────────────────────────────── */
+    .source-list,.company-list{display:flex;flex-direction:column;gap:8px;margin-top:4px;max-height:640px;overflow-y:auto;padding-right:2px}
+    .source-item,.company-item{border:1px solid var(--line);border-radius:8px;padding:11px 13px;background:var(--panel-2)}
+    .source-title,.company-title{font-weight:600;font-size:.85rem;word-break:break-word;margin-bottom:3px}
+    .source-meta,.company-meta{font-size:.73rem;color:var(--muted);word-break:break-all;line-height:1.6}
+    .source-actions,.company-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px}
+    .badge{
+      display:inline-block;padding:2px 8px;border-radius:5px;font-size:.7rem;
+      font-weight:700;border:1px solid var(--line);background:var(--panel);color:var(--text-2);margin-right:4px;
+    }
+    .badge-verified{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+    .badge-unverified{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+    .badge-failed{background:var(--err-soft);color:var(--err);border-color:transparent}
+
+    /* ── category tree ─────────────────────────────────────────────────── */
+    .tree-root{margin-top:10px;font-size:.84rem}
+    .tree-group-header{
+      display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;
+      padding:8px 0 7px;border-bottom:1px solid var(--line);margin:16px 0 6px;
+    }
+    .tree-group-title{font-weight:700;font-size:.82rem;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em}
+    /* renderNodes puts the row in .tree-node (indented inline via margin-left)
+       and the subtree in .tree-children, both inside .tree-item. */
+    .tree-item{display:block}
+    .tree-node{
+      display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+      padding:7px 0;border-bottom:1px solid var(--line);
+    }
+    .tree-children{display:block}
     .tree-children.collapsed{display:none}
-    .tree-inline-create{margin-top:6px;border:1px dashed #c8d7e2;border-radius:8px;padding:8px;background:#fbfdff;display:flex;flex-direction:column;gap:6px}
-    .tree-inline-actions{display:flex;gap:6px;flex-wrap:wrap}
-    .source-title,.company-title,.category-title{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.source-title a{color:#0b344f;text-decoration:none;font-weight:700;word-break:break-all}
-    .badge{display:inline-block;font-size:11px;border-radius:999px;padding:3px 8px;font-weight:700}.badge-verified{background:#d1fae5;color:#065f46}.badge-unverified{background:#ffedd5;color:#9a3412}.badge-failed{background:#fee2e2;color:#991b1b}.badge-on{background:#e0f2fe;color:#075985}.badge-off{background:#e5e7eb;color:#374151}
-    .source-meta,.company-meta,.category-meta{margin-top:4px;font-size:12px;color:var(--muted)}.source-actions,.company-actions,.category-actions{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
-    .chart-wrap{margin-top:8px;border:1px solid #d9e6ee;border-radius:10px;padding:8px;background:#fff}canvas{width:100%;height:auto;display:block}.stock-table{width:100%;border-collapse:collapse;font-size:12px}.stock-table th,.stock-table td{border-bottom:1px solid #e2eaf0;padding:6px;text-align:left}.up{color:#0f766e}.down{color:#b91c1c}
-    @media(max-width:1120px){.layout{grid-template-columns:1fr}.hero{flex-direction:column;align-items:flex-start}.form-row-inline,.stats-grid{grid-template-columns:1fr}.side-card,.main-card{flex:0 0 100%}}
+    .tree-name{font-weight:600}
+    .badge-on{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+    .badge-off{background:var(--panel);color:var(--muted)}
+    .tree-actions{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+    .tree-inline-create{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0 6px 16px}
+    .tree-inline-create input{width:auto;flex:1;min-width:110px;font-size:.78rem;padding:5px 8px}
+    .tree-inline-actions{display:flex;gap:5px}
   </style>
 </head>
 <body>
 <div class="wrap">
-  <section class="hero">
-    <div>
+
+  <header class="topbar">
+    <div class="brand">
       <h1>{{ project_name }}</h1>
-      <div class="sub">企业白名单: VIS / Infineon / onsemi / ST / Navitas / Wolfspeed / TI / Renesas</div>
-      <div class="sub">Timezone: {{ timezone }} | DeepSeek: {{ "ON" if deepseek_enabled else "OFF" }} | Gmail: {{ "ON" if email_enabled else "OFF" }}</div>
-      <div class="sub" style="margin-top:4px;color:#64748b;font-size:0.82em;">🕐 上次抓取: <span id="lastIngestTime">载入中...</span> &nbsp;|&nbsp; 每3天自动抓取并发报 &nbsp;|&nbsp; 下次: <span id="nextIngestTime">载入中...</span></div>
+      <div class="meta">
+        <span class="pill {{ 'on' if deepseek_enabled else 'off' }}"><span class="dot"></span>DeepSeek</span>
+        <span class="pill {{ 'on' if email_enabled else 'off' }}"><span class="dot"></span>周报邮件</span>
+        <span class="pill">{{ timezone }}</span>
+        <span>上次抓取 <b id="lastIngestTime">…</b></span>
+        <span>下次 <b id="nextIngestTime">…</b></span>
+      </div>
     </div>
-    <div class="hero-actions">
+    <div class="toolbar">
       <button id="btnIngest" class="primary">立即抓取</button>
-      <button id="btnEnrichContent">补全摘要/正文</button>
-      <button id="btnStocks">刷新股票快照</button>
-      <button id="btnBackfillStocks">抓取股票折线历史</button>
-      <button id="btnTriday">发三日报</button>
+      <button id="btnEnrichContent">补全摘要</button>
+      <button id="btnStocks">刷新股价</button>
+      <button id="btnBackfillStocks">补历史K线</button>
+      <button id="btnWeekly" class="secondary">发送周报</button>
+    </div>
+  </header>
+
+  <section class="kpis">
+    <div class="kpi">
+      <div class="label">情报总量</div>
+      <div class="value" id="kpiTotal">—</div>
+      <div class="sub">近 7 天 <span id="statArticles">0</span> 篇</div>
+    </div>
+    <div class="kpi">
+      <div class="label">抓取来源</div>
+      <div class="value" id="kpiSources">—</div>
+      <div class="sub" id="kpiSourcesSub">启用中</div>
+    </div>
+    <div class="kpi">
+      <div class="label">企业白名单</div>
+      <div class="value" id="kpiCompanies">—</div>
+      <div class="sub" id="kpiCompaniesSub">启用中</div>
+    </div>
+    <div class="kpi">
+      <div class="label">股票监控</div>
+      <div class="value" id="kpiTickers">—</div>
+      <div class="sub">Yahoo Finance</div>
     </div>
   </section>
 
-  <section class="stats-row">
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-panel="pane-feed"       aria-selected="true">情报流</button>
+    <button class="tab" role="tab" data-panel="pane-stats"      aria-selected="false">分类统计</button>
+    <button class="tab" role="tab" data-panel="pane-stocks"     aria-selected="false">股票行情</button>
+    <button class="tab" role="tab" data-panel="pane-sources"    aria-selected="false">资讯来源<span class="badge" id="tabBadgeSources">0</span></button>
+    <button class="tab" role="tab" data-panel="pane-companies"  aria-selected="false">企业白名单<span class="badge" id="tabBadgeCompanies">0</span></button>
+    <button class="tab" role="tab" data-panel="pane-categories" aria-selected="false">分类目录</button>
+  </nav>
+
+  <!-- ── 情报流 ──────────────────────────────────────────────────────── -->
+  <section class="tabpanel" id="pane-feed" role="tabpanel">
+    <div class="filterbar">
+      <div class="field"><label for="macro">一级分类</label><select id="macro"><option value="">全部</option></select></div>
+      <div class="field"><label for="tech">技术分类</label><select id="tech"><option value="">全部</option></select></div>
+      <div class="field wide"><label for="q">关键词</label><input id="q" placeholder="GaN HEMT / fast charger / data center"></div>
+      <div class="field"><label for="days">回看天数</label><input id="days" type="number" min="1" max="180" value="30"></div>
+      <div class="field"><label for="dateFrom">开始日期</label><input id="dateFrom" type="date"></div>
+      <div class="field"><label for="dateTo">结束日期</label><input id="dateTo" type="date"></div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <div class="toolbar">
+          <button id="btnFilter" class="primary">应用筛选</button>
+          <button id="btnClearDate">清除日期</button>
+        </div>
+      </div>
+    </div>
+    <div id="status" class="status"></div>
+    <div class="panel" style="margin-top:14px">
+      <h2>最新情报流</h2>
+      <div class="hint">点击标题打开原文。列表每 5 分钟自动刷新。</div>
+      <div id="articles" class="articles"></div>
+    </div>
+  </section>
+
+  <!-- ── 分类统计 ────────────────────────────────────────────────────── -->
+  <section class="tabpanel" id="pane-stats" role="tabpanel" hidden>
+    <div class="cols">
+      <div class="panel">
+        <h2>一级分类分布</h2>
+        <div class="hint">近 7 天</div>
+        <div id="macroBars" class="bars"></div>
+      </div>
+      <div class="panel">
+        <h2>技术分类分布</h2>
+        <div class="hint">近 7 天</div>
+        <div id="techBars" class="bars"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 股票行情 ────────────────────────────────────────────────────── -->
+  <section class="tabpanel" id="pane-stocks" role="tabpanel" hidden>
     <div class="panel">
-      <h2>分类统计 (7天)</h2>
-      <div class="stats-grid">
-        <div class="stat-box">文章数<strong id="statArticles">0</strong></div>
-        <div class="stat-box">DeepSeek<strong>{{ "ON" if deepseek_enabled else "OFF" }}</strong></div>
-        <div class="stat-box">邮件<strong>{{ "ON" if email_enabled else "OFF" }}</strong></div>
+      <h2>股价走势</h2>
+      <div class="hint">数据源 Yahoo Finance。折线需要先「补历史K线」才有足够点数。</div>
+      <div class="filterbar" style="margin-bottom:0">
+        <div class="field"><label for="chartTicker">Ticker</label><select id="chartTicker"></select></div>
+        <div class="field"><label for="chartPoints">点数</label><input id="chartPoints" type="number" min="20" max="2000" value="240"></div>
+        <div class="field"><label>&nbsp;</label><button id="btnLoadChart" class="primary">加载折线图</button></div>
       </div>
-      <div class="form-row"><label>一级分类分布</label><div id="macroBars"></div></div>
-      <div class="form-row"><label>技术分类分布</label><div id="techBars"></div></div>
+      <div class="chart-wrap">
+        <canvas id="stockChart" width="920" height="240"></canvas>
+        <div id="chartHint" class="muted" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>最新快照</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ticker</th><th>Price</th><th>Change %</th><th>Volume</th><th>Time</th></tr></thead>
+          <tbody id="stocksBody"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
-  <section class="layout">
-    <aside>
-      <div class="sidebar-shell">
-        <div class="sidebar-nav">
-          <button id="sidePrev" class="mini" type="button">◀</button>
-          <button id="sideNext" class="mini" type="button">▶</button>
+  <!-- ── 资讯来源 ────────────────────────────────────────────────────── -->
+  <section class="tabpanel" id="pane-sources" role="tabpanel" hidden>
+    <div class="cols">
+      <div class="panel">
+        <h2>新增来源</h2>
+        <div class="hint">校验规则：URL 可访问 + 命中可信域名 = verified。</div>
+        <div class="form-grid">
+          <div class="field full"><label for="srcName">来源名称</label><input id="srcName" placeholder="IEEE Spectrum Power"></div>
+          <div class="field full"><label for="srcUrl">来源 URL</label><input id="srcUrl" placeholder="https://..."></div>
+          <div class="field"><label for="srcType">类型</label>
+            <select id="srcType">
+              <option value="rss">rss</option>
+              <option value="crossref">crossref</option>
+              <option value="openalex">openalex</option>
+              <option value="arxiv">arxiv</option>
+            </select>
+          </div>
+          <div class="field"><label for="srcMacro">一级分类</label><select id="srcMacro"><option value="">全部</option></select></div>
+          <div class="field full"><label for="srcParams">参数 JSON（可选）</label><input id="srcParams" placeholder='{"query":"gallium nitride"}'></div>
+          <div class="field full"><button id="btnAddSource" class="primary" style="width:100%">新增来源</button></div>
         </div>
-        <div class="sidebar-pages" id="sidebarPages">
-      <div class="panel side-card">
-        <h2>情报筛选</h2>
-        <div class="form-row"><label>一级分类</label><select id="macro"><option value="">全部</option></select></div>
-        <div class="form-row"><label>技术分类</label><select id="tech"><option value="">全部</option></select></div>
-        <div class="form-row"><label>关键词</label><input id="q" placeholder="GaN HEMT / fast charger / data center"></div>
-        <div class="form-row"><label>回看天数</label><input id="days" type="number" min="1" max="180" value="30"></div>
-        <div class="form-row-inline">
-          <div class="form-row"><label>开始日期</label><input id="dateFrom" type="date"></div>
-          <div class="form-row"><label>结束日期</label><input id="dateTo" type="date"></div>
-        </div>
-        <button id="btnClearDate" class="mini" style="width:100%;margin-bottom:8px">清除日期区间</button>
-        <button id="btnFilter" class="primary" style="width:100%">应用筛选</button>
-        <div id="status" class="status"></div>
-      </div>
-
-      <div class="panel side-card" style="margin-top:12px">
-        <h2>分类目录（文件树）</h2>
-        <div class="muted" style="margin-top:8px">直接在树节点点击“新建子分类”，或在组标题点击“新建一级分类”。无需顶部填写栏。</div>
-        <div id="categoryStatus" class="status"></div>
-        <div id="categoryTree" class="tree-root"></div>
-      </div>
-
-      <div class="panel side-card" style="margin-top:12px">
-        <h2>资讯来源</h2>
-        <div class="form-row"><label>一级分类</label><select id="srcMacro"><option value="">全部</option></select></div>
-        <div class="form-row"><label>来源名称</label><input id="srcName" placeholder="IEEE Spectrum Power"></div>
-        <div class="form-row"><label>来源 URL</label><input id="srcUrl" placeholder="https://..."></div>
-        <div class="form-row-inline">
-          <div class="form-row"><label>来源类型</label><select id="srcType"><option value="rss">rss</option><option value="crossref">crossref</option><option value="arxiv">arxiv</option></select></div>
-          <div class="form-row"><label>参数 JSON (可选)</label><input id="srcParams" placeholder='{"query":"gallium nitride"}'></div>
-        </div>
-        <button id="btnAddSource" class="secondary" style="width:100%">新增来源</button>
-        <div class="muted" style="margin-top:8px">系统来源仅支持启用/停用；你手动新增的来源支持删除。校验规则：URL 可访问 + 命中可信域名 = verified。</div>
         <div id="sourceStatus" class="status"></div>
+      </div>
+      <div class="panel">
+        <h2>来源列表</h2>
+        <div class="hint">系统内置来源仅可启用/停用；手动新增的来源可删除。</div>
         <div id="sourceList" class="source-list"></div>
       </div>
+    </div>
+  </section>
 
-      <div class="panel side-card" style="margin-top:12px">
-        <h2>企业白名单配置</h2>
-        <div class="form-row-inline">
-          <div class="form-row"><label>企业名称</label><input id="companyName" placeholder="Infineon"></div>
-          <div class="form-row"><label>官网域名</label><input id="companyDomain" placeholder="infineon.com"></div>
+  <!-- ── 企业白名单 ──────────────────────────────────────────────────── -->
+  <section class="tabpanel" id="pane-companies" role="tabpanel" hidden>
+    <div class="cols">
+      <div class="panel">
+        <h2>新增企业</h2>
+        <div class="hint">每家企业会生成一条按域名限定的 Google News 检索源。</div>
+        <div class="form-grid">
+          <div class="field"><label for="companyName">企业名称</label><input id="companyName" placeholder="Infineon"></div>
+          <div class="field"><label for="companyDomain">官网域名</label><input id="companyDomain" placeholder="infineon.com"></div>
+          <div class="field full"><label for="companyNote">备注（可选）</label><input id="companyNote" placeholder="IDM / GaN pure-play"></div>
+          <div class="field full"><button id="btnAddCompany" class="primary" style="width:100%">新增企业</button></div>
+          <div class="field full"><button id="btnSyncCompanies" style="width:100%">同步白名单到来源库</button></div>
         </div>
-        <div class="form-row"><label>备注 (可选)</label><input id="companyNote" placeholder="官方新闻页优先"></div>
-        <button id="btnAddCompany" class="secondary" style="width:100%">新增企业到白名单</button>
-        <button id="btnSyncCompanies" class="mini" style="margin-top:8px">同步白名单到来源库</button>
-        <div class="muted" style="margin-top:8px">预置企业仅支持启用/停用；你手动新增的企业支持删除。</div>
         <div id="companyStatus" class="status"></div>
+      </div>
+      <div class="panel">
+        <h2>白名单列表</h2>
+        <div class="hint">预置企业仅可启用/停用；手动新增的企业可删除。</div>
         <div id="companyList" class="company-list"></div>
       </div>
-        </div>
-      </div>
-    </aside>
-
-    <main>
-      <div class="main-shell">
-        <div class="main-nav">
-          <button id="mainPrev" class="mini" type="button">◀</button>
-          <button id="mainNext" class="mini" type="button">▶</button>
-        </div>
-        <div class="main-pages" id="mainPages">
-          <div class="panel main-card">
-            <h2>股票监控与折线图</h2>
-            <div class="form-row-inline">
-              <div class="form-row"><label>Ticker</label><select id="chartTicker"></select></div>
-              <div class="form-row"><label>点数</label><input id="chartPoints" type="number" min="20" max="2000" value="240"></div>
-            </div>
-            <button id="btnLoadChart" class="mini">加载折线图</button>
-            <div class="chart-wrap"><canvas id="stockChart" width="920" height="230"></canvas><div id="chartHint" class="muted"></div></div>
-            <table class="stock-table" style="margin-top:10px">
-              <thead><tr><th>Ticker</th><th>Price</th><th>Change %</th><th>Volume</th><th>Time</th></tr></thead>
-              <tbody id="stocksBody"></tbody>
-            </table>
-          </div>
-
-          <div class="panel main-card">
-            <h2>最新情报流</h2>
-            <div class="muted">使用左侧“情报筛选”进行分类筛选，点击标题可打开原文。</div>
-            <div id="articles" class="articles"></div>
-          </div>
-        </div>
-      </div>
-    </main>
+    </div>
   </section>
+
+  <!-- ── 分类目录 ────────────────────────────────────────────────────── -->
+  <section class="tabpanel" id="pane-categories" role="tabpanel" hidden>
+    <div class="panel">
+      <h2>分类目录</h2>
+      <div class="hint">在组标题点「新建一级分类」，或在节点上点「新建子分类」。</div>
+      <div id="categoryStatus" class="status"></div>
+      <div id="categoryTree" class="tree-root"></div>
+    </div>
+  </section>
+
 </div>
 
 <script>
@@ -508,16 +725,36 @@ function renderBars(containerId,type,data,color){
     return `<div class="bar-line"><div>${escapeHtml(moduleLabel(type,key))}</div><div class="bar-box"><div class="bar" style="width:${pct}%;background:${color};"></div></div><div>${escapeHtml(value)}</div></div>`;
   }).join("");
 }
+function normText(value){
+  return String(value||"").toLowerCase().replace(/[\s\u3000]+/g,"").replace(/[.,:;!?"'()\[\]—–-]/g,"");
+}
+function isEcho(candidate,reference){
+  const a=normText(candidate), b=normText(reference);
+  if(!a||!b) return false;
+  if(a===b) return true;
+  const shorter=a.length<=b.length?a:b, longer=a.length<=b.length?b:a;
+  return shorter.length>=12 && longer.startsWith(shorter);
+}
 function renderArticles(items){
   const box=el("articles");
   if(!items.length){box.innerHTML=`<div class="muted">当前筛选没有数据。</div>`;return;}
-  box.innerHTML=items.map((row)=>`<article class="article">
-    <a class="title" href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.title||"(Untitled)")}</a>
+  box.innerHTML=items.map((row)=>{
+    const title=row.title||"(Untitled)";
+    // Drop each block that only repeats what is already on screen above it.
+    const summary=(row.summary && !isEcho(row.summary,title)) ? row.summary : "";
+    const preview=(row.content && !isEcho(row.content,title) && !isEcho(row.content,summary))
+      ? clipText(row.content,520) : "";
+    const body=summary
+      ? `<div class="summary">${escapeHtml(summary)}</div>`
+      : (preview ? "" : `<div class="summary muted">该来源未提供摘要，可点顶部「补全摘要」后重试。</div>`);
+    return `<article class="article">
+    <a class="title" href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(title)}</a>
     <div class="meta"><span>${escapeHtml(row.source||"-")}</span><span>${escapeHtml(fmtDate(row.published_at))}</span><span>Impact: ${escapeHtml(row.impact_score??"-")}</span></div>
-    <div class="summary">${escapeHtml(row.summary||"该来源未提供摘要，建议点击“补全摘要/正文”后重试。")}</div>
-    ${row.content?`<div class="content-preview">${escapeHtml(clipText(row.content,520))}</div>`:""}
+    ${body}
+    ${preview?`<div class="content-preview">${escapeHtml(preview)}</div>`:""}
     ${row.deepseek_analysis?`<div class="analysis">${escapeHtml(row.deepseek_analysis)}</div>`:""}
-  </article>`).join("");
+  </article>`;
+  }).join("");
 }
 function renderStocks(items){
   const tbody=el("stocksBody"), tickerSelect=el("chartTicker");
@@ -615,7 +852,8 @@ async function loadStats(){
   const data=await fetchJson("/api/stats?days=7");
   renderBars("macroBars","macro",data.macro||{},"linear-gradient(90deg,#ff6b35,#f39f79)");
   renderBars("techBars","tech",data.tech||{},"linear-gradient(90deg,#176087,#32a0c2)");
-  el("statArticles").textContent=data.total_articles ?? 0;
+  el("statArticles").textContent=data.window_articles ?? data.total_articles ?? 0;
+  updateKpis({kpiTotal:data.total_articles ?? 0});
   const li=data.last_ingest;
   if(li&&li.started_at){
     const d=new Date(li.started_at);
@@ -628,7 +866,13 @@ async function loadStats(){
   }
   el("nextIngestTime").textContent=data.next_ingest_run ? formatDateTime(new Date(data.next_ingest_run)) : "等待排程";
 }
-async function loadStocks(){const data=await fetchJson("/api/stocks"); renderStocks(data.items||[]); return data.items||[];}
+async function loadStocks(){
+  const data=await fetchJson("/api/stocks");
+  const rows=data.items||[];
+  renderStocks(rows);
+  updateKpis({kpiTickers:rows.length});
+  return rows;
+}
 async function loadSourceList(){
   const params=new URLSearchParams({include_inactive:"true"});
   const selection=resolveSourceModuleSelection();
@@ -642,11 +886,18 @@ async function loadSourceList(){
     });
   }
   renderSourceList(rows);
+  const activeSources=rows.filter((row)=>row.active).length;
+  updateKpis({kpiSources:activeSources,kpiSourcesSub:`共 ${rows.length} 条`});
+  setText("tabBadgeSources",activeSources);
   setSourceStatus(`当前资讯来源数: ${rows.length}`);
 }
 async function loadCompanyWhitelist(){
   const data=await fetchJson("/api/company-whitelist?include_inactive=true");
-  renderCompanyList(data.items||[]);
+  const companyRows=data.items||[];
+  renderCompanyList(companyRows);
+  const activeCompanies=companyRows.filter((row)=>row.active).length;
+  updateKpis({kpiCompanies:activeCompanies,kpiCompaniesSub:`共 ${companyRows.length} 家`});
+  setText("tabBadgeCompanies",activeCompanies);
   setCompanyStatus(`企业白名单数: ${data.count||0} | trusted domains: ${(data.trusted_domains||[]).length}`);
 }
 async function addSource(){
@@ -759,68 +1010,29 @@ async function backfillStockLines(){
   }catch(error){setStatus(`折线数据抓取失败: ${String(error).slice(0,180)}`);}
   finally{btn.disabled=false; btn.textContent=oldText;}
 }
-const SIDEBAR_FILTER_PAGE_INDEX = 0;
-const MAIN_LATEST_PAGE_INDEX = 1;
-function pagerStep(pages,cardSelector,minWidth){
-  const card=pages.querySelector(cardSelector);
-  if(!card) return minWidth;
-  return Math.max(card.getBoundingClientRect().width,minWidth);
-}
-function pagerIndex(pages,cardSelector,minWidth){
-  const step=pagerStep(pages,cardSelector,minWidth);
-  if(step<=0) return 0;
-  return Math.max(0,Math.round(pages.scrollLeft/step));
-}
-function pagerScrollToIndex(pages,cardSelector,minWidth,index){
-  const step=pagerStep(pages,cardSelector,minWidth);
-  const left=Math.max(0,index)*step;
-  if(Math.abs(pages.scrollLeft-left)<1) return;
-  pages.scrollTo({left,behavior:"smooth"});
-}
-function syncSidebarToFilterWhenMainLatest(){
-  const mainPages=el("mainPages");
-  const sidePages=el("sidebarPages");
-  if(!mainPages||!sidePages) return;
-  const mainIndex=pagerIndex(mainPages,".main-card",420);
-  if(mainIndex!==MAIN_LATEST_PAGE_INDEX) return;
-  const sideIndex=pagerIndex(sidePages,".side-card",320);
-  if(sideIndex!==SIDEBAR_FILTER_PAGE_INDEX){
-    pagerScrollToIndex(sidePages,".side-card",320,SIDEBAR_FILTER_PAGE_INDEX);
+function setupTabs(){
+  const tabs=Array.from(document.querySelectorAll(".tab"));
+  const panels=Array.from(document.querySelectorAll(".tabpanel"));
+  if(!tabs.length) return;
+  function activate(name,push){
+    tabs.forEach((t)=>t.setAttribute("aria-selected",String(t.dataset.panel===name)));
+    panels.forEach((p)=>{p.hidden=(p.id!==name);});
+    if(push && window.history && window.history.replaceState){
+      window.history.replaceState(null,"","#"+name);
+    }
   }
+  tabs.forEach((t)=>t.addEventListener("click",()=>activate(t.dataset.panel,true)));
+  const fromHash=(window.location.hash||"").replace(/^#/,"");
+  activate(panels.some((p)=>p.id===fromHash)?fromHash:tabs[0].dataset.panel,false);
 }
-function setupSidebarPager(){
-  const pages=el("sidebarPages");
-  const prev=el("sidePrev");
-  const next=el("sideNext");
-  if(!pages||!prev||!next) return;
-  const step=()=>{
-    const card=pages.querySelector(".side-card");
-    if(!card) return 420;
-    return Math.max(card.getBoundingClientRect().width,320);
-  };
-  prev.addEventListener("click",()=>pages.scrollBy({left:-step(),behavior:"smooth"}));
-  next.addEventListener("click",()=>pages.scrollBy({left:step(),behavior:"smooth"}));
+
+function setText(id,value){
+  const node=el(id);
+  if(node) node.textContent=value;
 }
-function setupMainPager(){
-  const pages=el("mainPages");
-  const prev=el("mainPrev");
-  const next=el("mainNext");
-  if(!pages||!prev||!next) return;
-  const step=()=>{
-    const card=pages.querySelector(".main-card");
-    if(!card) return 640;
-    return Math.max(card.getBoundingClientRect().width,420);
-  };
-  prev.addEventListener("click",()=>pages.scrollBy({left:-step(),behavior:"smooth"}));
-  next.addEventListener("click",()=>pages.scrollBy({left:step(),behavior:"smooth"}));
-  let scrollRaf=0;
-  pages.addEventListener("scroll",()=>{
-    if(scrollRaf) return;
-    scrollRaf=requestAnimationFrame(()=>{
-      scrollRaf=0;
-      syncSidebarToFilterWhenMainLatest();
-    });
-  });
+
+function updateKpis(patch){
+  Object.entries(patch||{}).forEach(([id,value])=>setText(id,value));
 }
 
 window.recheckSource=recheckSource;
@@ -851,7 +1063,7 @@ el("q").addEventListener("keydown",(event)=>{if(event.key==="Enter") loadArticle
 el("btnIngest").addEventListener("click",()=>runIngestTask());
 el("btnEnrichContent").addEventListener("click",()=>enrichContentTask());
 el("btnStocks").addEventListener("click",()=>runTask("btnStocks","/api/tasks/stocks","股价快照刷新完成"));
-el("btnTriday").addEventListener("click",()=>runTask("btnTriday","/api/tasks/send-triday","三日报发送完成"));
+el("btnWeekly").addEventListener("click",()=>runTask("btnWeekly","/api/tasks/send-weekly","周报发送完成（生成需 1-3 分钟）"));
 el("btnBackfillStocks").addEventListener("click",()=>backfillStockLines());
 el("btnLoadChart").addEventListener("click",()=>loadChart().catch((e)=>setStatus(String(e))));
 el("btnAddSource").addEventListener("click",()=>addSource().catch((e)=>setSourceStatus(String(e))));
@@ -862,8 +1074,7 @@ el("chartTicker").addEventListener("change",()=>loadChart().catch((e)=>setStatus
 
 async function initialize(){
   try{
-    setupSidebarPager();
-    setupMainPager();
+    setupTabs();
     await loadCategoryConfig();
     await Promise.all([loadArticles(),loadStats(),loadStocks(),loadCompanyWhitelist()]);
     if(!el("chartTicker").options.length) el("chartTicker").innerHTML=defaultTickers.map((t)=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");

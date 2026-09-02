@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import quote_plus, urlparse
 
 import httpx
-from sqlalchemy import asc, desc, or_, select
+from sqlalchemy import and_, asc, desc, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -14,7 +14,7 @@ from .category_registry import get_active_category_keys, get_category_labels
 from .models import CompanyWhitelist, SourceSite
 from .sources import SourceDefinition, get_default_sources
 
-VALID_SOURCE_TYPES = {"rss", "arxiv", "crossref"}
+VALID_SOURCE_TYPES = {"rss", "arxiv", "crossref", "openalex"}
 VALID_MODULE_TYPES = {"macro", "tech"}
 
 STATIC_TRUSTED_DOMAIN_SUFFIXES = {
@@ -22,6 +22,8 @@ STATIC_TRUSTED_DOMAIN_SUFFIXES = {
     "arxiv.org",
     "export.arxiv.org",
     "api.crossref.org",
+    "api.openalex.org",
+    "openalex.org",
     "doi.org",
     "ieee.org",
     "ieeexplore.ieee.org",
@@ -40,6 +42,18 @@ STATIC_TRUSTED_DOMAIN_SUFFIXES = {
     "vis.com.tw",
     "microchip.com",
     "analog.com",
+    "nexperia.com",
+    "rohm.com",
+    "epc-co.com",
+    "innoscience.com",
+    "camgandevices.com",
+    "transphormusa.com",
+    "power.com",
+    "qorvo.com",
+    "macom.com",
+    "aixtron.com",
+    "veeco.com",
+    "soitec.com",
     "mouser.com",
     "digikey.com",
     "finance.yahoo.com",
@@ -48,19 +62,42 @@ STATIC_TRUSTED_DOMAIN_SUFFIXES = {
     "bloomberg.com",
 }
 
+# Each entry becomes a domain-scoped Google News query, so the cost of one extra
+# company is one extra feed per run. Grouped by role in the GaN supply chain.
 DEFAULT_COMPANY_WHITELIST = [
+    # ── IDMs / broad-line power semiconductor vendors ───────────────────────
     {
         "name": "VIS",
         "domain": "vis.com.tw",
-        "note": "Official site (press): https://www.vis.com.tw/tc/press_latest",
+        "note": "Foundry (press): https://www.vis.com.tw/tc/press_latest",
     },
-    {"name": "Infineon", "domain": "infineon.com", "note": "Official site"},
-    {"name": "onsemi", "domain": "onsemi.com", "note": "Official site"},
-    {"name": "ST", "domain": "st.com", "note": "Official site"},
-    {"name": "Navitas", "domain": "navitassemi.com", "note": "Official site"},
-    {"name": "Wolfspeed", "domain": "wolfspeed.com", "note": "Official site"},
-    {"name": "TI", "domain": "ti.com", "note": "Official site"},
-    {"name": "Renesas", "domain": "renesas.com", "note": "Official site"},
+    {"name": "Infineon", "domain": "infineon.com", "note": "IDM; acquired GaN Systems"},
+    {"name": "onsemi", "domain": "onsemi.com", "note": "IDM"},
+    {"name": "ST", "domain": "st.com", "note": "IDM"},
+    {"name": "TI", "domain": "ti.com", "note": "IDM"},
+    {"name": "Renesas", "domain": "renesas.com", "note": "IDM; acquired Transphorm"},
+    {"name": "Wolfspeed", "domain": "wolfspeed.com", "note": "SiC/GaN materials + devices"},
+    {"name": "Nexperia", "domain": "nexperia.com", "note": "Discretes incl. GaN FETs"},
+    {"name": "ROHM", "domain": "rohm.com", "note": "IDM, SiC/GaN"},
+    {"name": "Microchip", "domain": "microchip.com", "note": "IDM"},
+    {"name": "Analog Devices", "domain": "analog.com", "note": "IDM"},
+
+    # ── GaN-first / pure-play device makers ─────────────────────────────────
+    {"name": "Navitas", "domain": "navitassemi.com", "note": "GaN pure-play"},
+    {"name": "EPC", "domain": "epc-co.com", "note": "eGaN FET pure-play"},
+    {"name": "Innoscience", "domain": "innoscience.com", "note": "8-inch GaN-on-Si IDM"},
+    {"name": "Cambridge GaN Devices", "domain": "camgandevices.com", "note": "GaN fabless"},
+    {"name": "Transphorm", "domain": "transphormusa.com", "note": "GaN; now part of Renesas"},
+    {"name": "Power Integrations", "domain": "power.com", "note": "GaN in PowiGaN ICs"},
+
+    # ── RF GaN ──────────────────────────────────────────────────────────────
+    {"name": "Qorvo", "domain": "qorvo.com", "note": "RF GaN"},
+    {"name": "MACOM", "domain": "macom.com", "note": "RF GaN-on-Si/SiC"},
+
+    # ── Upstream: substrates and epitaxy equipment ──────────────────────────
+    {"name": "Aixtron", "domain": "aixtron.com", "note": "MOCVD equipment"},
+    {"name": "Veeco", "domain": "veeco.com", "note": "MOCVD equipment"},
+    {"name": "Soitec", "domain": "soitec.com", "note": "Engineered substrates"},
 ]
 
 
@@ -321,7 +358,25 @@ def ensure_seed_sources(session: Session) -> int:
         session.add(row)
         inserted += 1
         existing_pairs.add((module_type, module_key, source.url))
-    if inserted or updated:
+
+    # Seeding used to be insert-only, so a source retired from get_default_sources()
+    # lived on in the database and kept costing a fetch every run. Retire the
+    # leftovers here. Whitelist-generated rows belong to
+    # sync_company_whitelist_sources, and anything the user added is theirs.
+    retired = 0
+    wanted_names = {source.name[:160] for source in defaults}
+    for row in session.scalars(
+        select(SourceSite).where(
+            SourceSite.created_by_user.is_(False),
+            SourceSite.active.is_(True),
+            SourceSite.name.notlike("Whitelist Company - %"),
+        )
+    ):
+        if row.name not in wanted_names:
+            row.active = False
+            retired += 1
+
+    if inserted or updated or retired:
         session.commit()
     return inserted + updated
 
@@ -511,6 +566,16 @@ def sources_for_ingestion(session: Session) -> List[SourceDefinition]:
                 or_(
                     SourceSite.verification_status == "verified",
                     SourceSite.manual_approved.is_(True),
+                    # Verification is a single 15s GET taken once, at seed time. One
+                    # transient timeout used to drop a built-in source out of every
+                    # future run, silently and permanently. Curated sources on the
+                    # static allow-list are not user input, and fetch_from_source
+                    # already isolates per-source failures, so a failed probe should
+                    # not disqualify them. User-added sources still need to pass.
+                    and_(
+                        SourceSite.created_by_user.is_(False),
+                        SourceSite.trusted_domain.is_(True),
+                    ),
                 ),
             )
         )

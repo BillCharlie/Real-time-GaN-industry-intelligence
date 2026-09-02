@@ -13,7 +13,6 @@ from .models import IngestLog
 from .pipeline import run_ingestion
 from .reporter import (
     build_monthly_report,
-    build_triday_report,
     build_weekly_report,
     send_report_email,
 )
@@ -45,11 +44,11 @@ class RuntimeScheduler:
                   id="startup_ingest_job", max_instances=1, coalesce=True,
                   replace_existing=True)
 
-        # ── 每 3 天 08:00：抓取 + 发三日报 ──────────────────────────────
-        s.add_job(self._triday_job, trigger="interval",
+        # ── 每 3 天 08:00：只抓取，不发报 ────────────────────────────────
+        s.add_job(self._ingest_job, trigger="interval",
                   days=3,
                   start_date=first_run,
-                  id="triday_job", max_instances=1, coalesce=True,
+                  id="ingest_job", max_instances=1, coalesce=True,
                   misfire_grace_time=60 * 60, replace_existing=True)
 
         # ── 每周日 08:05 发周报 ───────────────────────────────────────────
@@ -68,8 +67,8 @@ class RuntimeScheduler:
 
         s.start()
         logger.info(
-            "Scheduler started. startup_ingest=now | triday=%s (every 3d at %02d:%02d) | "
-            "weekly=Sun %02d:%02d | monthly=last-day %02d:%02d (%s)",
+            "Scheduler started. startup_ingest=now | ingest=%s (every 3d at %02d:%02d) | "
+            "weekly report=Sun %02d:%02d | monthly report=last-day %02d:%02d (%s)",
             first_run.strftime("%Y-%m-%d %H:%M"),
             h, m, h, m + 5, h, m + 10,
             self.settings.timezone,
@@ -81,11 +80,11 @@ class RuntimeScheduler:
             logger.info("Scheduler stopped.")
 
     def status(self) -> dict:
-        triday_job = self.scheduler.get_job("triday_job")
-        next_run = triday_job.next_run_time if triday_job else None
+        ingest_job = self.scheduler.get_job("ingest_job")
+        next_run = ingest_job.next_run_time if ingest_job else None
         return {
             "running": self.scheduler.running,
-            "next_triday_run": next_run.isoformat() if next_run else None,
+            "next_ingest_run": next_run.isoformat() if next_run else None,
         }
 
     # ── jobs ──────────────────────────────────────────────────────────────────
@@ -113,15 +112,15 @@ class RuntimeScheduler:
             except Exception:
                 logger.exception("Failed to record startup ingestion failure.")
 
-    def _triday_job(self) -> None:
-        """Every 3 days at 08:00: ingest fresh articles then send the tri-day report."""
+    def _ingest_job(self) -> None:
+        """Every 3 days at 08:00: ingest fresh articles. Reports go out weekly/monthly."""
         run_started_at = datetime.now(timezone.utc)
         try:
             with SessionLocal() as session:
                 result = run_ingestion(session, self.settings, self.deepseek)
-                logger.info("Triday ingestion: %s", result.as_dict())
+                logger.info("Scheduled ingestion: %s", result.as_dict())
         except Exception as exc:
-            logger.exception("Triday ingestion failed.")
+            logger.exception("Scheduled ingestion failed.")
             try:
                 with SessionLocal() as session:
                     session.add(
@@ -134,19 +133,7 @@ class RuntimeScheduler:
                     )
                     session.commit()
             except Exception:
-                logger.exception("Failed to record triday ingestion failure.")
-
-        if not self.settings.email_enabled:
-            logger.warning("Triday report skipped: email not configured.")
-            return
-        try:
-            with SessionLocal() as session:
-                subject, text_body, html_body, stats = build_triday_report(
-                    session, self.settings, self.deepseek)
-                send_report_email(session, self.settings, "triday", subject, text_body, html_body)
-                logger.info("Triday report sent: %s", stats)
-        except Exception:
-            logger.exception("Triday report failed.")
+                logger.exception("Failed to record scheduled ingestion failure.")
 
     def _weekly_report_job(self) -> None:
         if not self.settings.email_enabled:

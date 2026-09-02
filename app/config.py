@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-chat"
     deepseek_timeout_seconds: int = 35
+    # Long-form report generation needs far more headroom than per-article
+    # classification: 35s times out mid-answer and _safe_ai swallows it silently.
+    deepseek_report_timeout_seconds: int = 300
+    deepseek_report_max_tokens: int = 8000
     deepseek_enabled: bool = True
 
     gmail_smtp_host: str = "smtp.gmail.com"

@@ -90,12 +90,12 @@ def _runtime_scheduler_status() -> dict:
     if not runtime_scheduler:
         return {
             "scheduler_running": False,
-            "next_triday_run": None,
+            "next_ingest_run": None,
         }
     status = runtime_scheduler.status()
     return {
         "scheduler_running": status.get("running", False),
-        "next_triday_run": status.get("next_triday_run"),
+        "next_ingest_run": status.get("next_ingest_run"),
     }
 
 

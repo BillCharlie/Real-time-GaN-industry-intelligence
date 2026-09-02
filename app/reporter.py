@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import logging
 import os
+import re
 import smtplib
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -39,8 +40,7 @@ def build_daily_report(
         "macro_count": dict(macro_counter),
         "tech_count": dict(tech_counter),
         "highlights": [
-            {"title": a.title, "source": a.source, "url": a.url,
-             "macro": a.macro_category, "tech": a.tech_category}
+            _article_brief(a)
             for a in articles[:20]
         ],
     }
@@ -79,8 +79,7 @@ def build_triday_report(
         "macro_count": dict(macro_counter),
         "tech_count": dict(tech_counter),
         "highlights": [
-            {"title": a.title, "source": a.source, "url": a.url,
-             "macro": a.macro_category, "tech": a.tech_category}
+            _article_brief(a)
             for a in articles[:20]
         ],
     }
@@ -118,8 +117,7 @@ def build_weekly_report(
         "macro_count": dict(macro_counter),
         "tech_count": dict(tech_counter),
         "highlights": [
-            {"title": a.title, "source": a.source, "url": a.url,
-             "macro": a.macro_category, "tech": a.tech_category}
+            _article_brief(a)
             for a in articles[:30]
         ],
     }
@@ -169,8 +167,7 @@ def build_monthly_report(
         "this_tech_count":  dict(this_tech),
         "prev_tech_count":  dict(prev_tech),
         "highlights": [
-            {"title": a.title, "source": a.source, "url": a.url,
-             "macro": a.macro_category, "tech": a.tech_category}
+            _article_brief(a)
             for a in this_month[:40]
         ],
     }
@@ -261,7 +258,14 @@ _BASE_STYLE = """
   .header p{margin:0;font-size:.88em;opacity:.85;}
   .body{padding:28px 32px;}
   .ai-block{background:#f0f9ff;border-left:4px solid #0ea5e9;border-radius:6px;
-            padding:16px 18px;margin-bottom:24px;font-size:.95em;line-height:1.7;white-space:pre-wrap;}
+            padding:18px 20px;margin-bottom:24px;font-size:.93em;line-height:1.75;}
+  .ai-block .ai-title{font-weight:700;color:#0369a1;margin-bottom:12px;font-size:1.02em;}
+  .ai-block .ai-h2{font-weight:700;color:#0c4a6e;font-size:1.0em;margin:18px 0 8px;
+                   border-bottom:1px solid #bae6fd;padding-bottom:5px;}
+  .ai-block .ai-h3{font-weight:600;color:#075985;margin:14px 0 5px;}
+  .ai-block p{margin:0 0 11px;text-align:justify;}
+  .ai-block ul.ai-ul{margin:0 0 11px;padding-left:20px;}
+  .ai-block ul.ai-ul li{margin:4px 0;}
   .section-title{font-size:1em;font-weight:700;color:#475569;
                  text-transform:uppercase;letter-spacing:.06em;margin:24px 0 10px;}
   .stat-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
@@ -291,7 +295,8 @@ def _render_html(
     grouped: Dict[str, List[Article]], accent: str = "#2563eb",
 ) -> str:
     brief_block = (
-        f'<div class="ai-block">🤖 <b>DeepSeek 摘要</b><br><br>{html.escape(ai_brief)}</div>'
+        f'<div class="ai-block"><div class="ai-title">🤖 DeepSeek 深度分析</div>'
+        f'{_brief_to_html(ai_brief)}</div>'
         if ai_brief else
         '<div class="ai-block" style="color:#94a3b8;">DeepSeek 摘要未启用。</div>'
     )
@@ -330,7 +335,8 @@ def _render_monthly_html(
     grouped: Dict[str, List[Article]],
 ) -> str:
     brief_block = (
-        f'<div class="ai-block">🤖 <b>DeepSeek 月度分析</b><br><br>{html.escape(ai_brief)}</div>'
+        f'<div class="ai-block"><div class="ai-title">🤖 DeepSeek 月度深度研究</div>'
+        f'{_brief_to_html(ai_brief)}</div>'
         if ai_brief else
         '<div class="ai-block" style="color:#94a3b8;">DeepSeek 摘要未启用。</div>'
     )
@@ -427,6 +433,65 @@ def _group_by_macro(articles: List[Article]) -> Dict[str, List[Article]]:
         grouped[a.macro_category].append(a)
     return {macro: rows[:10] for macro, rows in grouped.items()}
 
+
+def _article_brief(a: Article, *, summary_chars: int = 600,
+                   analysis_chars: int = 400) -> Dict:
+    """What the model gets to reason from. Titles alone cannot support an argued
+    analysis, so the stored summary, prior per-article analysis and scores go too."""
+    def _cut(value, limit: int):
+        if not value:
+            return None
+        text = ' '.join(str(value).split())
+        return text[:limit] + '…' if len(text) > limit else text
+
+    return {
+        "title": a.title,
+        "source": a.source,
+        "url": a.url,
+        "published_at": a.published_at.strftime("%Y-%m-%d") if a.published_at else None,
+        "macro": a.macro_category,
+        "tech": a.tech_category,
+        "tags": a.tags_csv,
+        "summary": _cut(a.summary or a.content, summary_chars),
+        "prior_analysis": _cut(a.deepseek_analysis, analysis_chars),
+        "impact_score": a.impact_score,
+        "sentiment_score": a.sentiment_score,
+    }
+
+def _brief_to_html(text: str) -> str:
+    """The prompts ask for ## headings, - bullets and **bold**; without this the
+    email would show that markup literally as one undifferentiated wall of text."""
+    out: List[str] = []
+    in_list = False
+
+    def close_list():
+        nonlocal in_list
+        if in_list:
+            out.append('</ul>')
+            in_list = False
+
+    for raw in text.split(chr(10)):
+        line = raw.strip()
+        if not line:
+            close_list()
+            continue
+        esc = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', html.escape(line))
+        if line.startswith('###'):
+            close_list()
+            out.append('<div class="ai-h3">' + esc.lstrip('#').strip() + '</div>')
+        elif line.startswith('##'):
+            close_list()
+            out.append('<div class="ai-h2">' + esc.lstrip('#').strip() + '</div>')
+        elif line[:2] in ('- ', '* '):
+            if not in_list:
+                out.append('<ul class="ai-ul">')
+                in_list = True
+            out.append('<li>' + esc[2:].strip() + '</li>')
+        else:
+            close_list()
+            out.append('<p>' + esc + '</p>')
+    close_list()
+    return ''.join(out)
 
 def _safe_ai(fn, payload) -> str | None:
     try:

@@ -626,7 +626,7 @@ async function loadStats(){
   }else{
     el("lastIngestTime").textContent="尚无记录";
   }
-  el("nextIngestTime").textContent=data.next_triday_run ? formatDateTime(new Date(data.next_triday_run)) : "等待排程";
+  el("nextIngestTime").textContent=data.next_ingest_run ? formatDateTime(new Date(data.next_ingest_run)) : "等待排程";
 }
 async function loadStocks(){const data=await fetchJson("/api/stocks"); renderStocks(data.items||[]); return data.items||[];}
 async function loadSourceList(){

@@ -283,6 +283,15 @@ def get_default_sources() -> List[SourceDefinition]:
             skip_page_preview=True,
         ),
         SourceDefinition(
+            # The old TOC6882348 feed returns zero entries; TOC6245494 is the live one.
+            name="IEEE JEDS - Journal of the Electron Devices Society",
+            source_type="rss",
+            url="https://ieeexplore.ieee.org/rss/TOC6245494.XML",
+            macro_hint="academic",
+            tech_hint="high_frequency",
+            skip_page_preview=True,
+        ),
+        SourceDefinition(
             name="ScienceDirect - Solid-State Electronics",
             source_type="rss",
             url="https://rss.sciencedirect.com/publication/science/00381101",
